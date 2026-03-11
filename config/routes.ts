@@ -54,6 +54,39 @@
 		icon: 'BookOutlined',
 		component: './QuanLyHocTap',
 	},
+	{
+		path: '/oan-tu-ti',
+		name: 'OanTuTi',
+		icon: 'ScissorOutlined',
+		component: './OanTuTi',
+	},
+	{
+		path: '/ngan-hang-cau-hoi',
+		name: 'NganHangCauHoi',
+		icon: 'BankOutlined',
+		routes: [
+			{
+				path: 'khoi-kien-thuc',
+				name: 'KhoiKienThuc',
+				component: './NganHangCauHoi/KhoiKienThuc',
+			},
+			{
+				path: 'mon-hoc',
+				name: 'MonHoc',
+				component: './NganHangCauHoi/MonHoc',
+			},
+			{
+				path: 'cau-hoi',
+				name: 'CauHoi',
+				component: './NganHangCauHoi/CauHoi',
+			},
+			{
+				path: 'de-thi',
+				name: 'DeThi',
+				component: './NganHangCauHoi/DeThi',
+			},
+		],
+	},
 
 	// DANH MUC HE THONG
 	// {

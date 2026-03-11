@@ -1,4 +1,4 @@
-export default {
+﻿export default {
   'menu.login': 'Đăng nhập',
   'menu.account': 'Tài khoản',
   'menu.account.center': 'Cá nhân',
@@ -8,4 +8,10 @@ export default {
   'menu.DanhMuc': 'Danh mục',
   'menu.DanhMuc.ChucVu': 'Chức vụ',
   'menu.DanhMuc.LoaiPhongBan': 'Loại phòng ban',
+  'menu.OanTuTi': 'Rock Paper Scissors',
+  'menu.NganHangCauHoi': 'Question Bank',
+  'menu.NganHangCauHoi.KhoiKienThuc': 'Knowledge Blocks',
+  'menu.NganHangCauHoi.MonHoc': 'Subjects',
+  'menu.NganHangCauHoi.CauHoi': 'Questions',
+  'menu.NganHangCauHoi.DeThi': 'Exams',
 };
