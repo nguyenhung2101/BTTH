@@ -199,7 +199,7 @@ const CauHoiPage: React.FC = () => {
 
 			<Modal
 				title={editing ? 'Chỉnh sửa câu hỏi' : 'Thêm câu hỏi mới'}
-				open={modalOpen}
+				visible={modalOpen}
 				onOk={handleOk}
 				onCancel={() => setModalOpen(false)}
 				okText={editing ? 'Cập nhật' : 'Thêm mới'}

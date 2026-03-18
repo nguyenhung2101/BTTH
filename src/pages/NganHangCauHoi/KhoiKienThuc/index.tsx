@@ -120,7 +120,7 @@ const KhoiKienThucPage: React.FC = () => {
 
 			<Modal
 				title={editing ? 'Chỉnh sửa khối kiến thức' : 'Thêm khối kiến thức mới'}
-				open={modalOpen}
+				visible={modalOpen}
 				onOk={handleOk}
 				onCancel={() => setModalOpen(false)}
 				okText={editing ? 'Cập nhật' : 'Thêm mới'}

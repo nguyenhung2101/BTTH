@@ -55,6 +55,12 @@
 		component: './QuanLyHocTap',
 	},
 	{
+		path: '/dat-lich-dich-vu',
+		name: 'DatLichDichVu',
+		icon: 'ScheduleOutlined',
+		component: './TienIch/DatLichDichVu',
+	},
+	{
 		path: '/oan-tu-ti',
 		name: 'OanTuTi',
 		icon: 'ScissorOutlined',

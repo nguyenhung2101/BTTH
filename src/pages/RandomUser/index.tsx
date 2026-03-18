@@ -1,5 +1,5 @@
-import type { IColumn } from '@/components/Table/typing';
-import { Button, Form, Input, Modal, Select, Table } from 'antd';
+import { Button, Form, Input, Modal, Table } from 'antd';
+import type { ColumnsType } from 'antd/lib/table';
 import { useEffect, useState } from 'react';
 import { useModel } from 'umi';
 import queryString from 'query-string';
@@ -10,7 +10,7 @@ const RandomUser = () => {
 	const [visible, setVisible] = useState<boolean>(false);
 	const [isEdit, setIsEdit] = useState<boolean>(false);
 	const [row, setRow] = useState<RandomUser.Record>();
-	const [data2, setData2] = useState([]);
+	const [data2, setData2] = useState<any[]>([]);
 	const [pageSize, setPageSize] = useState(10);
 	const [current, setCurrent] = useState(1);
 	const [total, setTotal] = useState(0);
@@ -37,7 +37,7 @@ const RandomUser = () => {
 	const parsed = queryString.parse(location.search);
 	console.log(parsed);
 
-	const columns: IColumn<RandomUser.Record>[] = [
+	const columns: ColumnsType<any> = [
 		{
 			title: 'Address',
 			dataIndex: 'name',
@@ -54,7 +54,7 @@ const RandomUser = () => {
 			title: 'Sửa/xóa',
 			width: 200,
 			align: 'center',
-			render: (record) => {
+			render: (_: unknown, record: any) => {
 				return (
 					<div>
 						<Button
@@ -95,10 +95,10 @@ const RandomUser = () => {
 			>
 				Add User
 			</Button>
-			<Table
+			<Table<any>
 				onChange={(pagination) => {
-					setPageSize(pagination.pageSize);
-					setCurrent(pagination.current);
+					setPageSize(pagination.pageSize || 10);
+					setCurrent(pagination.current || 1);
 				}}
 				pagination={{ total, pageSize, current }}
 				dataSource={data2}

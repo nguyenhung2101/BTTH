@@ -118,7 +118,7 @@ const MonHocPage: React.FC = () => {
 
 			<Modal
 				title={editing ? 'Chỉnh sửa môn học' : 'Thêm môn học mới'}
-				open={modalOpen}
+				visible={modalOpen}
 				onOk={handleOk}
 				onCancel={() => setModalOpen(false)}
 				okText={editing ? 'Cập nhật' : 'Thêm mới'}

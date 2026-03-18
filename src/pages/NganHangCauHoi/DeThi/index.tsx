@@ -1,5 +1,5 @@
 import {
-	Alert, Button, Card, Col, Collapse, Descriptions, Form,
+	Button, Card, Col, Descriptions,
 	InputNumber, message, Modal, Popconfirm, Row, Select,
 	Space, Table, Tag, Tooltip, Typography,
 } from 'antd';
@@ -16,7 +16,6 @@ import {
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { Panel } = Collapse;
 
 const ALL_MUC_DO: MucDoKho[] = ['De', 'TrungBinh', 'Kho', 'RatKho'];
 
@@ -324,7 +323,7 @@ const DeThiPage: React.FC = () => {
 			{/* Modal xem đề thi */}
 			<Modal
 				title={`Xem đề thi: ${viewExam?.maDe}`}
-				open={viewModalOpen}
+				visible={viewModalOpen}
 				onCancel={() => setViewModalOpen(false)}
 				footer={<Button onClick={() => setViewModalOpen(false)}>Đóng</Button>}
 				width={700}

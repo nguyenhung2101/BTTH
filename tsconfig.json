@@ -10,7 +10,7 @@
 		"resolveJsonModule": true,
 		"allowSyntheticDefaultImports": true,
 		"moduleResolution": "node",
-		"forceConsistentCasingInFileNames": true,
+		"forceConsistentCasingInFileNames": false,
 		"noImplicitReturns": true,
 		"noUnusedLocals": true,
 		"allowJs": true,

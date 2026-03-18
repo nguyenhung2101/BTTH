@@ -80,6 +80,7 @@ export default () => {
 				return set;
 			});
 			if (!payload?.noNotif) message.success('Lưu thành công');
+			return true;
 		} catch (err) {
 			return Promise.reject(err);
 		} finally {
