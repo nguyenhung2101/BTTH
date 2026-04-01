@@ -1,14 +1,24 @@
+import ColumnChart from '@/components/Chart/ColumnChart';
+import TinyEditor from '@/components/TinyEditor';
 import {
+	CheckCircleOutlined,
+	CloseCircleOutlined,
+	DeleteOutlined,
+	EditOutlined,
+	EyeOutlined,
+	PlusOutlined,
+	TeamOutlined,
+} from '@ant-design/icons';
+import {
+	Avatar,
 	Button,
 	Card,
 	Col,
 	DatePicker,
 	Descriptions,
-	Divider,
 	Empty,
 	Form,
 	Input,
-	InputNumber,
 	Modal,
 	Popconfirm,
 	Row,
@@ -18,1230 +28,1013 @@ import {
 	Table,
 	Tabs,
 	Tag,
+	Typography,
 	message,
 } from 'antd';
-import {
-	DeleteOutlined,
-	DownloadOutlined,
-	EditOutlined,
-	EyeOutlined,
-	PlusOutlined,
-	SearchOutlined,
-} from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import dayjs from 'dayjs';
 
-type FieldDataType = 'string' | 'number' | 'date';
+const { Text } = Typography;
 
-interface SoVanBang {
+type ClubStatus = 'active' | 'inactive';
+type ApplicationStatus = 'Pending' | 'Approved' | 'Rejected';
+type Gender = 'Nam' | 'Nữ' | 'Khác';
+type HistoryAction =
+	| 'CREATE'
+	| 'UPDATE'
+	| 'DELETE'
+	| 'APPROVE'
+	| 'REJECT'
+	| 'TRANSFER_CLUB';
+
+interface Club {
 	id: string;
-	nam: number;
-	maSo: string;
+	avatarUrl: string;
+	name: string;
+	foundedDate: string;
+	descriptionHtml: string;
+	president: string;
+	status: ClubStatus;
 	createdAt: number;
 }
 
-interface QuyetDinhTotNghiep {
+interface RegistrationApplication {
 	id: string;
-	soQuyetDinh: string;
-	ngayBanHanh: string;
-	trichYeu: string;
-	soVanBangId: string;
-	lookupCount: number;
+	fullName: string;
+	email: string;
+	phone: string;
+	gender: Gender;
+	address: string;
+	talent: string;
+	clubId: string;
+	reason: string;
+	status: ApplicationStatus;
+	note?: string;
+	rejectionReason?: string;
 	createdAt: number;
+	updatedAt: number;
 }
 
-interface TruongDuLieu {
+interface ClubMember {
 	id: string;
-	key: string;
-	label: string;
-	kieuDuLieu: FieldDataType;
-	createdAt: number;
+	applicationId: string;
+	fullName: string;
+	email: string;
+	phone: string;
+	gender: Gender;
+	address: string;
+	talent: string;
+	clubId: string;
+	joinedAt: number;
 }
 
-interface VanBang {
+interface ActionHistory {
 	id: string;
-	soVanBangId: string;
-	quyetDinhId: string;
-	soVaoSo: number;
-	soHieuVanBang: string;
-	maSinhVien: string;
-	hoTen: string;
-	ngaySinh: string;
-	duLieuMoRong: Record<string, string | number>;
+	action: HistoryAction;
+	target: 'club' | 'application' | 'member';
+	targetIds: string[];
+	detail: string;
+	operator: string;
 	createdAt: number;
 }
 
 const STORAGE_KEYS = {
-	soVanBangs: 'vanbang_sovanbangs',
-	quyetDinhs: 'vanbang_quyetdinhs',
-	truongDuLieus: 'vanbang_truongdulieus',
-	vanBangs: 'vanbang_records',
+	clubs: 'th05_clubs',
+	applications: 'th05_applications',
+	members: 'th05_members',
+	histories: 'th05_histories',
 };
 
-const DEFAULT_TRUONG_DU_LIEU: TruongDuLieu[] = [
-	{ id: uuidv4(), key: 'diem_trung_binh', label: 'Điểm trung bình', kieuDuLieu: 'number', createdAt: Date.now() },
-	{ id: uuidv4(), key: 'xep_hang', label: 'Xếp hạng', kieuDuLieu: 'string', createdAt: Date.now() },
-	{ id: uuidv4(), key: 'he_dao_tao', label: 'Hệ đào tạo', kieuDuLieu: 'string', createdAt: Date.now() },
-];
+const ADMIN_NAME = 'Admin';
 
 const QuanLyHocTapPage: React.FC = () => {
-	const [soVanBangs, setSoVanBangs] = useState<SoVanBang[]>([]);
-	const [quyetDinhs, setQuyetDinhs] = useState<QuyetDinhTotNghiep[]>([]);
-	const [truongDuLieus, setTruongDuLieus] = useState<TruongDuLieu[]>([]);
-	const [vanBangs, setVanBangs] = useState<VanBang[]>([]);
+	const [clubs, setClubs] = useState<Club[]>([]);
+	const [applications, setApplications] = useState<RegistrationApplication[]>([]);
+	const [members, setMembers] = useState<ClubMember[]>([]);
+	const [histories, setHistories] = useState<ActionHistory[]>([]);
 
-	const [bookModalVisible, setBookModalVisible] = useState(false);
-	const [decisionModalVisible, setDecisionModalVisible] = useState(false);
-	const [fieldModalVisible, setFieldModalVisible] = useState(false);
-	const [diplomaModalVisible, setDiplomaModalVisible] = useState(false);
-	const [detailModalVisible, setDetailModalVisible] = useState(false);
+	const [activeTab, setActiveTab] = useState('clubs');
+	const [memberClubFilter, setMemberClubFilter] = useState<string | undefined>();
 
-	const [editingBook, setEditingBook] = useState<SoVanBang | null>(null);
-	const [editingDecision, setEditingDecision] = useState<QuyetDinhTotNghiep | null>(null);
-	const [editingField, setEditingField] = useState<TruongDuLieu | null>(null);
-	const [editingDiploma, setEditingDiploma] = useState<VanBang | null>(null);
-	const [viewingDiploma, setViewingDiploma] = useState<VanBang | null>(null);
+	const [clubKeyword, setClubKeyword] = useState('');
+	const [applicationKeyword, setApplicationKeyword] = useState('');
+	const [memberKeyword, setMemberKeyword] = useState('');
 
-	const [searchResults, setSearchResults] = useState<VanBang[]>([]);
+	const [selectedApplicationRowKeys, setSelectedApplicationRowKeys] = useState<string[]>([]);
+	const [selectedMemberRowKeys, setSelectedMemberRowKeys] = useState<string[]>([]);
 
-	const [bookForm] = Form.useForm();
-	const [decisionForm] = Form.useForm();
-	const [fieldForm] = Form.useForm();
-	const [diplomaForm] = Form.useForm();
-	const [searchForm] = Form.useForm();
+	const [clubModalVisible, setClubModalVisible] = useState(false);
+	const [applicationModalVisible, setApplicationModalVisible] = useState(false);
+	const [applicationDetailVisible, setApplicationDetailVisible] = useState(false);
+	const [rejectModalVisible, setRejectModalVisible] = useState(false);
+	const [historyModalVisible, setHistoryModalVisible] = useState(false);
+	const [transferModalVisible, setTransferModalVisible] = useState(false);
+
+	const [editingClub, setEditingClub] = useState<Club | null>(null);
+	const [editingApplication, setEditingApplication] = useState<RegistrationApplication | null>(null);
+	const [viewingApplication, setViewingApplication] =
+		useState<RegistrationApplication | null>(null);
+	const [pendingRejectIds, setPendingRejectIds] = useState<string[]>([]);
+
+	const [clubForm] = Form.useForm();
+	const [applicationForm] = Form.useForm();
+	const [rejectForm] = Form.useForm();
+	const [transferForm] = Form.useForm();
+
+	const persistClubs = (data: Club[]) => {
+		setClubs(data);
+		localStorage.setItem(STORAGE_KEYS.clubs, JSON.stringify(data));
+	};
+
+	const persistApplications = (data: RegistrationApplication[]) => {
+		setApplications(data);
+		localStorage.setItem(STORAGE_KEYS.applications, JSON.stringify(data));
+	};
+
+	const persistMembers = (data: ClubMember[]) => {
+		setMembers(data);
+		localStorage.setItem(STORAGE_KEYS.members, JSON.stringify(data));
+	};
+
+	const persistHistories = (data: ActionHistory[]) => {
+		setHistories(data);
+		localStorage.setItem(STORAGE_KEYS.histories, JSON.stringify(data));
+	};
+
+	const pushHistory = (
+		action: HistoryAction,
+		target: 'club' | 'application' | 'member',
+		targetIds: string[],
+		detail: string
+	) => {
+		const next: ActionHistory = {
+			id: uuidv4(),
+			action,
+			target,
+			targetIds,
+			detail,
+			operator: ADMIN_NAME,
+			createdAt: Date.now(),
+		};
+		persistHistories([next, ...histories]);
+	};
 
 	useEffect(() => {
-		const savedSoVanBangs = localStorage.getItem(STORAGE_KEYS.soVanBangs);
-		const savedQuyetDinhs = localStorage.getItem(STORAGE_KEYS.quyetDinhs);
-		const savedTruongDuLieus = localStorage.getItem(STORAGE_KEYS.truongDuLieus);
-		const savedVanBangs = localStorage.getItem(STORAGE_KEYS.vanBangs);
+		const parsedClubs: Club[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.clubs) || '[]');
+		const parsedApplications: RegistrationApplication[] = JSON.parse(
+			localStorage.getItem(STORAGE_KEYS.applications) || '[]'
+		);
+		const parsedMembers: ClubMember[] = JSON.parse(
+			localStorage.getItem(STORAGE_KEYS.members) || '[]'
+		);
+		const parsedHistories: ActionHistory[] = JSON.parse(
+			localStorage.getItem(STORAGE_KEYS.histories) || '[]'
+		);
 
-		setSoVanBangs(savedSoVanBangs ? JSON.parse(savedSoVanBangs) : []);
-		setQuyetDinhs(savedQuyetDinhs ? JSON.parse(savedQuyetDinhs) : []);
-		setTruongDuLieus(savedTruongDuLieus ? JSON.parse(savedTruongDuLieus) : DEFAULT_TRUONG_DU_LIEU);
-		setVanBangs(savedVanBangs ? JSON.parse(savedVanBangs) : []);
+		setClubs(parsedClubs);
+		setApplications(parsedApplications);
+		setMembers(parsedMembers);
+		setHistories(parsedHistories);
 	}, []);
 
-	const persistSoVanBangs = (data: SoVanBang[]) => {
-		setSoVanBangs(data);
-		localStorage.setItem(STORAGE_KEYS.soVanBangs, JSON.stringify(data));
-	};
+	const getClubName = (clubId: string) => clubs.find((club) => club.id === clubId)?.name || '-';
 
-	const persistQuyetDinhs = (data: QuyetDinhTotNghiep[]) => {
-		setQuyetDinhs(data);
-		localStorage.setItem(STORAGE_KEYS.quyetDinhs, JSON.stringify(data));
-	};
+	const clubOptions = clubs.map((club) => ({ label: club.name, value: club.id }));
 
-	const persistTruongDuLieus = (data: TruongDuLieu[]) => {
-		setTruongDuLieus(data);
-		localStorage.setItem(STORAGE_KEYS.truongDuLieus, JSON.stringify(data));
-	};
-
-	const persistVanBangs = (data: VanBang[]) => {
-		setVanBangs(data);
-		localStorage.setItem(STORAGE_KEYS.vanBangs, JSON.stringify(data));
-	};
-
-	const getSoVanBangName = (id: string) => {
-		const soVanBang = soVanBangs.find((item) => item.id === id);
-		if (!soVanBang) {
-			return 'Không xác định';
+	const filteredClubs = useMemo(() => {
+		const normalizedKeyword = clubKeyword.trim().toLowerCase();
+		if (!normalizedKeyword) {
+			return clubs;
 		}
-		return `${soVanBang.maSo} - Năm ${soVanBang.nam}`;
-	};
-
-	const getQuyetDinhName = (id: string) => {
-		const quyetDinh = quyetDinhs.find((item) => item.id === id);
-		if (!quyetDinh) {
-			return 'Không xác định';
-		}
-		return `${quyetDinh.soQuyetDinh} (${dayjs(quyetDinh.ngayBanHanh).format('DD/MM/YYYY')})`;
-	};
-
-	const getNextSoVaoSo = (soVanBangId: string) => {
-		const relatedRecords = vanBangs.filter((item) => item.soVanBangId === soVanBangId);
-		if (relatedRecords.length === 0) {
-			return 1;
-		}
-		return Math.max(...relatedRecords.map((item) => item.soVaoSo)) + 1;
-	};
-
-	const selectedDecisionId = Form.useWatch('quyetDinhId', diplomaForm);
-	const selectedDecision = useMemo(
-		() => quyetDinhs.find((item) => item.id === selectedDecisionId),
-		[quyetDinhs, selectedDecisionId]
-	);
-
-	const previewSoVaoSo = useMemo(() => {
-		if (editingDiploma) {
-			return editingDiploma.soVaoSo;
-		}
-		if (!selectedDecision) {
-			return undefined;
-		}
-		return getNextSoVaoSo(selectedDecision.soVanBangId);
-	}, [editingDiploma, selectedDecision, vanBangs]);
-
-	const openCreateBook = () => {
-		setEditingBook(null);
-		bookForm.resetFields();
-		bookForm.setFieldsValue({ nam: dayjs().year() });
-		setBookModalVisible(true);
-	};
-
-	const openEditBook = (record: SoVanBang) => {
-		setEditingBook(record);
-		bookForm.setFieldsValue(record);
-		setBookModalVisible(true);
-	};
-
-	const handleSaveBook = async () => {
-		try {
-			const values = await bookForm.validateFields();
-			const duplicatedYear = soVanBangs.some(
-				(item) => item.nam === values.nam && item.id !== editingBook?.id
+		return clubs.filter((club) => {
+			return (
+				club.name.toLowerCase().includes(normalizedKeyword) ||
+				club.president.toLowerCase().includes(normalizedKeyword)
 			);
-			if (duplicatedYear) {
-				message.error('Mỗi năm chỉ được có 1 sổ văn bằng');
-				return;
-			}
-
-			if (editingBook) {
-				const updated = soVanBangs.map((item) =>
-					item.id === editingBook.id ? { ...item, ...values } : item
-				);
-				persistSoVanBangs(updated);
-				message.success('Cập nhật sổ văn bằng thành công');
-			} else {
-				const created: SoVanBang = {
-					id: uuidv4(),
-					nam: values.nam,
-					maSo: values.maSo,
-					createdAt: Date.now(),
-				};
-				persistSoVanBangs([...soVanBangs, created]);
-				message.success('Tạo sổ văn bằng thành công');
-			}
-			setBookModalVisible(false);
-			setEditingBook(null);
-			bookForm.resetFields();
-		} catch (error) {
-			message.error('Vui lòng nhập đầy đủ thông tin sổ văn bằng');
-		}
-	};
-
-	const handleDeleteBook = (id: string) => {
-		const usedByDecision = quyetDinhs.some((item) => item.soVanBangId === id);
-		if (usedByDecision) {
-			message.error('Không thể xóa sổ văn bằng đang được sử dụng bởi quyết định tốt nghiệp');
-			return;
-		}
-		persistSoVanBangs(soVanBangs.filter((item) => item.id !== id));
-		message.success('Xóa sổ văn bằng thành công');
-	};
-
-	const openCreateDecision = () => {
-		setEditingDecision(null);
-		decisionForm.resetFields();
-		setDecisionModalVisible(true);
-	};
-
-	const openEditDecision = (record: QuyetDinhTotNghiep) => {
-		setEditingDecision(record);
-		decisionForm.setFieldsValue({
-			...record,
-			ngayBanHanh: dayjs(record.ngayBanHanh),
 		});
-		setDecisionModalVisible(true);
-	};
+	}, [clubs, clubKeyword]);
 
-	const handleSaveDecision = async () => {
-		try {
-			const values = await decisionForm.validateFields();
-			if (editingDecision) {
-				const updated = quyetDinhs.map((item) =>
-					item.id === editingDecision.id
-						? {
-								...item,
-								...values,
-								ngayBanHanh: values.ngayBanHanh.format('YYYY-MM-DD'),
-						  }
-						: item
-				);
-				persistQuyetDinhs(updated);
-				message.success('Cập nhật quyết định thành công');
-			} else {
-				const created: QuyetDinhTotNghiep = {
-					id: uuidv4(),
-					soQuyetDinh: values.soQuyetDinh,
-					ngayBanHanh: values.ngayBanHanh.format('YYYY-MM-DD'),
-					trichYeu: values.trichYeu,
-					soVanBangId: values.soVanBangId,
-					lookupCount: 0,
-					createdAt: Date.now(),
-				};
-				persistQuyetDinhs([...quyetDinhs, created]);
-				message.success('Thêm quyết định thành công');
-			}
-
-			setDecisionModalVisible(false);
-			setEditingDecision(null);
-			decisionForm.resetFields();
-		} catch (error) {
-			message.error('Vui lòng nhập đầy đủ thông tin quyết định');
+	const filteredApplications = useMemo(() => {
+		const normalizedKeyword = applicationKeyword.trim().toLowerCase();
+		if (!normalizedKeyword) {
+			return applications;
 		}
-	};
-
-	const handleDeleteDecision = (id: string) => {
-		const usedByDiploma = vanBangs.some((item) => item.quyetDinhId === id);
-		if (usedByDiploma) {
-			message.error('Không thể xóa quyết định đã có văn bằng');
-			return;
-		}
-		persistQuyetDinhs(quyetDinhs.filter((item) => item.id !== id));
-		message.success('Xóa quyết định thành công');
-	};
-
-	const openCreateField = () => {
-		setEditingField(null);
-		fieldForm.resetFields();
-		setFieldModalVisible(true);
-	};
-
-	const openEditField = (record: TruongDuLieu) => {
-		setEditingField(record);
-		fieldForm.setFieldsValue(record);
-		setFieldModalVisible(true);
-	};
-
-	const handleSaveField = async () => {
-		try {
-			const values = await fieldForm.validateFields();
-			const normalizedKey = values.key.trim().toLowerCase();
-			const duplicated = truongDuLieus.some(
-				(item) => item.key === normalizedKey && item.id !== editingField?.id
+		return applications.filter((item) => {
+			return (
+				item.fullName.toLowerCase().includes(normalizedKeyword) ||
+				item.email.toLowerCase().includes(normalizedKeyword) ||
+				item.phone.toLowerCase().includes(normalizedKeyword)
 			);
-			if (duplicated) {
-				message.error('Khóa trường đã tồn tại, vui lòng chọn khóa khác');
-				return;
-			}
-
-			if (editingField) {
-				const updated = truongDuLieus.map((item) =>
-					item.id === editingField.id
-						? {
-								...item,
-								label: values.label,
-								key: normalizedKey,
-								kieuDuLieu: values.kieuDuLieu,
-						  }
-						: item
-				);
-				persistTruongDuLieus(updated);
-				message.success('Cập nhật cấu hình trường thành công');
-			} else {
-				const created: TruongDuLieu = {
-					id: uuidv4(),
-					label: values.label,
-					key: normalizedKey,
-					kieuDuLieu: values.kieuDuLieu,
-					createdAt: Date.now(),
-				};
-				persistTruongDuLieus([...truongDuLieus, created]);
-				message.success('Thêm trường dữ liệu thành công');
-			}
-
-			setFieldModalVisible(false);
-			setEditingField(null);
-			fieldForm.resetFields();
-		} catch (error) {
-			message.error('Vui lòng điền đúng thông tin trường dữ liệu');
-		}
-	};
-
-	const handleDeleteField = (id: string) => {
-		const usedByData = vanBangs.some((item) => item.duLieuMoRong[id] !== undefined);
-		if (usedByData) {
-			message.error('Không thể xóa trường đã có dữ liệu trong văn bằng');
-			return;
-		}
-		persistTruongDuLieus(truongDuLieus.filter((item) => item.id !== id));
-		message.success('Xóa trường dữ liệu thành công');
-	};
-
-	const openCreateDiploma = () => {
-		if (quyetDinhs.length === 0) {
-			message.warning('Bạn cần tạo quyết định tốt nghiệp trước khi thêm văn bằng');
-			return;
-		}
-		setEditingDiploma(null);
-		diplomaForm.resetFields();
-		setDiplomaModalVisible(true);
-	};
-
-	const openEditDiploma = (record: VanBang) => {
-		setEditingDiploma(record);
-		const dynamicValues: Record<string, any> = {};
-		truongDuLieus.forEach((field) => {
-			const value = record.duLieuMoRong[field.id];
-			if (value === undefined || value === null || value === '') {
-				dynamicValues[field.id] = undefined;
-				return;
-			}
-			dynamicValues[field.id] =
-				field.kieuDuLieu === 'date' ? dayjs(value as string, 'YYYY-MM-DD') : value;
 		});
+	}, [applications, applicationKeyword]);
 
-		diplomaForm.setFieldsValue({
-			quyetDinhId: record.quyetDinhId,
-			soHieuVanBang: record.soHieuVanBang,
-			maSinhVien: record.maSinhVien,
-			hoTen: record.hoTen,
-			ngaySinh: dayjs(record.ngaySinh, 'YYYY-MM-DD'),
-			duLieuMoRong: dynamicValues,
+	const filteredMembers = useMemo(() => {
+		const keyword = memberKeyword.trim().toLowerCase();
+		return members.filter((item) => {
+			const matchedKeyword =
+				!keyword ||
+				item.fullName.toLowerCase().includes(keyword) ||
+				item.email.toLowerCase().includes(keyword) ||
+				item.phone.toLowerCase().includes(keyword);
+			const matchedClub = !memberClubFilter || item.clubId === memberClubFilter;
+			return matchedKeyword && matchedClub;
 		});
-		setDiplomaModalVisible(true);
-	};
+	}, [memberKeyword, memberClubFilter, members]);
 
-	const handleSaveDiploma = async () => {
-		try {
-			const values = await diplomaForm.validateFields();
-			const selected = quyetDinhs.find((item) => item.id === values.quyetDinhId);
-			if (!selected) {
-				message.error('Quyết định tốt nghiệp không hợp lệ');
-				return;
-			}
-
-			const duplicatedSoHieu = vanBangs.some(
-				(item) =>
-					item.soHieuVanBang.trim().toLowerCase() ===
-						values.soHieuVanBang.trim().toLowerCase() &&
-					item.id !== editingDiploma?.id
-			);
-			if (duplicatedSoHieu) {
-				message.error('Số hiệu văn bằng đã tồn tại');
-				return;
-			}
-
-			const dynamicValues: Record<string, string | number> = {};
-			truongDuLieus.forEach((field) => {
-				const rawValue = values.duLieuMoRong?.[field.id];
-				if (rawValue === undefined || rawValue === null || rawValue === '') {
-					return;
-				}
-				if (field.kieuDuLieu === 'date') {
-					dynamicValues[field.id] = rawValue.format('YYYY-MM-DD');
-					return;
-				}
-				dynamicValues[field.id] = rawValue;
-			});
-
-			if (editingDiploma) {
-				const updated = vanBangs.map((item) =>
-					item.id === editingDiploma.id
-						? {
-								...item,
-								quyetDinhId: values.quyetDinhId,
-								soVanBangId: selected.soVanBangId,
-								soHieuVanBang: values.soHieuVanBang.trim(),
-								maSinhVien: values.maSinhVien.trim(),
-								hoTen: values.hoTen.trim(),
-								ngaySinh: values.ngaySinh.format('YYYY-MM-DD'),
-								duLieuMoRong: dynamicValues,
-						  }
-						: item
-				);
-				persistVanBangs(updated);
-				message.success('Cập nhật thông tin văn bằng thành công');
-			} else {
-				const created: VanBang = {
-					id: uuidv4(),
-					quyetDinhId: values.quyetDinhId,
-					soVanBangId: selected.soVanBangId,
-					soVaoSo: getNextSoVaoSo(selected.soVanBangId),
-					soHieuVanBang: values.soHieuVanBang.trim(),
-					maSinhVien: values.maSinhVien.trim(),
-					hoTen: values.hoTen.trim(),
-					ngaySinh: values.ngaySinh.format('YYYY-MM-DD'),
-					duLieuMoRong: dynamicValues,
-					createdAt: Date.now(),
-				};
-				persistVanBangs([...vanBangs, created]);
-				message.success('Thêm văn bằng thành công');
-			}
-
-			setDiplomaModalVisible(false);
-			setEditingDiploma(null);
-			diplomaForm.resetFields();
-		} catch (error) {
-			message.error('Vui lòng nhập đầy đủ thông tin văn bằng');
-		}
-	};
-
-	const handleDeleteDiploma = (id: string) => {
-		persistVanBangs(vanBangs.filter((item) => item.id !== id));
-		message.success('Xóa văn bằng thành công');
-	};
-
-	const openDiplomaDetail = (record: VanBang, countLookup = false) => {
-		if (countLookup) {
-			const updatedDecisions = quyetDinhs.map((item) =>
-				item.id === record.quyetDinhId ? { ...item, lookupCount: item.lookupCount + 1 } : item
-			);
-			persistQuyetDinhs(updatedDecisions);
-		}
-		setViewingDiploma(record);
-		setDetailModalVisible(true);
-	};
-
-	const handleSearch = async () => {
-		const values = await searchForm.validateFields();
-		const conditionCount = [
-			values.soHieuVanBang,
-			values.soVaoSo,
-			values.maSinhVien,
-			values.hoTen,
-			values.ngaySinh,
-		].filter(Boolean).length;
-
-		if (conditionCount < 2) {
-			message.error('Tra cứu yêu cầu nhập ít nhất 2 tham số');
-			setSearchResults([]);
-			return;
-		}
-
-		const filtered = vanBangs.filter((item) => {
-			const matchedSoHieu = values.soHieuVanBang
-				? item.soHieuVanBang.toLowerCase().includes(values.soHieuVanBang.toLowerCase().trim())
-				: true;
-
-			const matchedSoVaoSo = values.soVaoSo ? item.soVaoSo === values.soVaoSo : true;
-
-			const matchedMsv = values.maSinhVien
-				? item.maSinhVien.toLowerCase().includes(values.maSinhVien.toLowerCase().trim())
-				: true;
-
-			const matchedHoTen = values.hoTen
-				? item.hoTen.toLowerCase().includes(values.hoTen.toLowerCase().trim())
-				: true;
-
-			const matchedNgaySinh = values.ngaySinh
-				? item.ngaySinh === values.ngaySinh.format('YYYY-MM-DD')
-				: true;
-
-			return matchedSoHieu && matchedSoVaoSo && matchedMsv && matchedHoTen && matchedNgaySinh;
-		});
-
-		setSearchResults(filtered);
-		message.success(`Tìm thấy ${filtered.length} kết quả`);
-	};
-
-	const totalLookup = useMemo(
-		() => quyetDinhs.reduce((sum, item) => sum + item.lookupCount, 0),
-		[quyetDinhs]
-	);
-
-	const bookColumns = [
-		{ title: 'Năm', dataIndex: 'nam', key: 'nam', width: 110 },
-		{ title: 'Mã sổ văn bằng', dataIndex: 'maSo', key: 'maSo' },
-		{
-			title: 'Số văn bằng đã cấp',
-			key: 'count',
-			render: (_: unknown, record: SoVanBang) =>
-				vanBangs.filter((item) => item.soVanBangId === record.id).length,
-		},
-		{
-			title: 'Hành động',
-			key: 'action',
-			render: (_: unknown, record: SoVanBang) => (
-				<Space>
-					<Button size="small" icon={<EditOutlined />} onClick={() => openEditBook(record)}>
-						Sửa
-					</Button>
-					<Popconfirm title="Xóa sổ văn bằng này?" onConfirm={() => handleDeleteBook(record.id)}>
-						<Button size="small" danger icon={<DeleteOutlined />}>
-							Xóa
-						</Button>
-					</Popconfirm>
-				</Space>
-			),
-		},
-	];
-
-	const decisionColumns = [
-		{ title: 'Số quyết định', dataIndex: 'soQuyetDinh', key: 'soQuyetDinh' },
-		{
-			title: 'Ngày ban hành',
-			dataIndex: 'ngayBanHanh',
-			key: 'ngayBanHanh',
-			render: (value: string) => dayjs(value).format('DD/MM/YYYY'),
-		},
-		{ title: 'Trích yếu', dataIndex: 'trichYeu', key: 'trichYeu', ellipsis: true },
-		{
-			title: 'Sổ văn bằng',
-			dataIndex: 'soVanBangId',
-			key: 'soVanBangId',
-			render: (id: string) => getSoVanBangName(id),
-		},
-		{
-			title: 'Lượt tra cứu',
-			dataIndex: 'lookupCount',
-			key: 'lookupCount',
-			render: (value: number) => <Tag color="blue">{value}</Tag>,
-		},
-		{
-			title: 'Hành động',
-			key: 'action',
-			render: (_: unknown, record: QuyetDinhTotNghiep) => (
-				<Space>
-					<Button size="small" icon={<EditOutlined />} onClick={() => openEditDecision(record)}>
-						Sửa
-					</Button>
-					<Popconfirm
-						title="Xóa quyết định này?"
-						onConfirm={() => handleDeleteDecision(record.id)}
-					>
-						<Button size="small" danger icon={<DeleteOutlined />}>
-							Xóa
-						</Button>
-					</Popconfirm>
-				</Space>
-			),
-		},
-	];
-
-	const fieldColumns = [
-		{ title: 'Tên hiển thị', dataIndex: 'label', key: 'label' },
-		{ title: 'Khóa dữ liệu', dataIndex: 'key', key: 'key' },
-		{
-			title: 'Kiểu dữ liệu',
-			dataIndex: 'kieuDuLieu',
-			key: 'kieuDuLieu',
-			render: (value: FieldDataType) => {
-				if (value === 'string') {
-					return <Tag color="green">String</Tag>;
-				}
-				if (value === 'number') {
-					return <Tag color="gold">Number</Tag>;
-				}
-				return <Tag color="purple">Date</Tag>;
-			},
-		},
-		{
-			title: 'Hành động',
-			key: 'action',
-			render: (_: unknown, record: TruongDuLieu) => (
-				<Space>
-					<Button size="small" icon={<EditOutlined />} onClick={() => openEditField(record)}>
-						Sửa
-					</Button>
-					<Popconfirm title="Xóa trường này?" onConfirm={() => handleDeleteField(record.id)}>
-						<Button size="small" danger icon={<DeleteOutlined />}>
-							Xóa
-						</Button>
-					</Popconfirm>
-				</Space>
-			),
-		},
-	];
-
-	const diplomaColumns = [
-		{ title: 'Số vào sổ', dataIndex: 'soVaoSo', key: 'soVaoSo', width: 120 },
-		{ title: 'Số hiệu văn bằng', dataIndex: 'soHieuVanBang', key: 'soHieuVanBang' },
-		{ title: 'Mã sinh viên', dataIndex: 'maSinhVien', key: 'maSinhVien', width: 130 },
-		{ title: 'Họ tên', dataIndex: 'hoTen', key: 'hoTen' },
-		{
-			title: 'Ngày sinh',
-			dataIndex: 'ngaySinh',
-			key: 'ngaySinh',
-			render: (value: string) => dayjs(value).format('DD/MM/YYYY'),
-		},
-		{
-			title: 'Quyết định',
-			dataIndex: 'quyetDinhId',
-			key: 'quyetDinhId',
-			render: (id: string) => getQuyetDinhName(id),
-		},
-		{
-			title: 'Hành động',
-			key: 'action',
-			render: (_: unknown, record: VanBang) => (
-				<Space>
-					<Button size="small" icon={<EyeOutlined />} onClick={() => openDiplomaDetail(record)}>
-						Xem
-					</Button>
-					<Button size="small" icon={<EditOutlined />} onClick={() => openEditDiploma(record)}>
-						Sửa
-					</Button>
-					<Popconfirm title="Xóa văn bằng này?" onConfirm={() => handleDeleteDiploma(record.id)}>
-						<Button size="small" danger icon={<DeleteOutlined />}>
-							Xóa
-						</Button>
-					</Popconfirm>
-				</Space>
-			),
-		},
-	];
-
-	const searchColumns = [
-		{ title: 'Số hiệu văn bằng', dataIndex: 'soHieuVanBang', key: 'soHieuVanBang' },
-		{ title: 'Số vào sổ', dataIndex: 'soVaoSo', key: 'soVaoSo', width: 110 },
-		{ title: 'Mã sinh viên', dataIndex: 'maSinhVien', key: 'maSinhVien', width: 130 },
-		{ title: 'Họ tên', dataIndex: 'hoTen', key: 'hoTen' },
-		{
-			title: 'Quyết định',
-			dataIndex: 'quyetDinhId',
-			key: 'quyetDinhId',
-			render: (id: string) => getQuyetDinhName(id),
-		},
-		{
-			title: 'Chi tiết',
-			key: 'action',
-			render: (_: unknown, record: VanBang) => (
-				<Button size="small" type="primary" icon={<EyeOutlined />} onClick={() => openDiplomaDetail(record, true)}>
-					Xem chi tiết
-				</Button>
-			),
-		},
-	];
-
-	const renderDynamicValue = (field: TruongDuLieu, diploma: VanBang) => {
-		const value = diploma.duLieuMoRong[field.id];
-		if (value === undefined || value === null || value === '') {
-			return '-';
-		}
-		if (field.kieuDuLieu === 'date') {
-			return dayjs(String(value)).format('DD/MM/YYYY');
-		}
-		return String(value);
-	};
-
-	const downloadTextFile = (fileName: string, content: string, contentType: string) => {
-		const blob = new Blob([content], { type: contentType });
-		const url = window.URL.createObjectURL(blob);
-		const anchor = document.createElement('a');
-		anchor.href = url;
-		anchor.download = fileName;
-		document.body.appendChild(anchor);
-		anchor.click();
-		document.body.removeChild(anchor);
-		window.URL.revokeObjectURL(url);
-	};
-
-	const handleExportJson = () => {
-		const payload = {
-			generatedAt: new Date().toISOString(),
-			soVanBangs,
-			quyetDinhs,
-			truongDuLieus,
-			vanBangs,
+	const stats = useMemo(() => {
+		const pending = applications.filter((item) => item.status === 'Pending').length;
+		const approved = applications.filter((item) => item.status === 'Approved').length;
+		const rejected = applications.filter((item) => item.status === 'Rejected').length;
+		return {
+			clubCount: clubs.length,
+			pending,
+			approved,
+			rejected,
 		};
-		downloadTextFile(
-			`du-lieu-van-bang-${dayjs().format('YYYYMMDD-HHmmss')}.json`,
-			JSON.stringify(payload, null, 2),
-			'application/json;charset=utf-8'
+	}, [applications, clubs.length]);
+
+	const chartData = useMemo(() => {
+		const xAxis = clubs.map((club) => club.name);
+		const pendingData = clubs.map(
+			(club) =>
+				applications.filter((item) => item.clubId === club.id && item.status === 'Pending').length
 		);
-		message.success('Đã xuất file dữ liệu');
+		const approvedData = clubs.map(
+			(club) =>
+				applications.filter((item) => item.clubId === club.id && item.status === 'Approved').length
+		);
+		const rejectedData = clubs.map(
+			(club) =>
+				applications.filter((item) => item.clubId === club.id && item.status === 'Rejected').length
+		);
+		return {
+			xAxis,
+			yAxis: [pendingData, approvedData, rejectedData],
+		};
+	}, [applications, clubs]);
+
+	const openCreateClub = () => {
+		setEditingClub(null);
+		clubForm.resetFields();
+		clubForm.setFieldsValue({ status: 'active' });
+		setClubModalVisible(true);
 	};
 
-	const toCsvCell = (value: string | number) => {
-		const stringValue = String(value);
-		if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-			return `"${stringValue.replace(/"/g, '""')}"`;
-		}
-		return stringValue;
-	};
-
-	const handleExportCsv = () => {
-		const staticHeaders = [
-			'SoHieuVanBang',
-			'SoVaoSo',
-			'MaSinhVien',
-			'HoTen',
-			'NgaySinh',
-			'SoQuyetDinh',
-			'SoVanBang',
-		];
-		const dynamicHeaders = truongDuLieus.map((field) => field.key);
-		const headers = [...staticHeaders, ...dynamicHeaders];
-
-		const lines = [headers.join(',')];
-		vanBangs.forEach((item) => {
-			const quyetDinh = quyetDinhs.find((d) => d.id === item.quyetDinhId);
-			const soVanBang = soVanBangs.find((s) => s.id === item.soVanBangId);
-
-			const staticValues: Array<string | number> = [
-				item.soHieuVanBang,
-				item.soVaoSo,
-				item.maSinhVien,
-				item.hoTen,
-				item.ngaySinh,
-				quyetDinh?.soQuyetDinh || '',
-				soVanBang?.maSo || '',
-			];
-
-			const dynamicValues: Array<string | number> = truongDuLieus.map(
-				(field) => item.duLieuMoRong[field.id] || ''
-			);
-
-			lines.push([...staticValues, ...dynamicValues].map((cell) => toCsvCell(cell)).join(','));
+	const openEditClub = (record: Club) => {
+		setEditingClub(record);
+		clubForm.setFieldsValue({
+			...record,
+			foundedDate: dayjs(record.foundedDate),
 		});
-
-		downloadTextFile(
-			`danh-sach-van-bang-${dayjs().format('YYYYMMDD-HHmmss')}.csv`,
-			`\ufeff${lines.join('\n')}`,
-			'text/csv;charset=utf-8'
-		);
-		message.success('Đã xuất file danh sách (mở bằng Excel)');
+		setClubModalVisible(true);
 	};
 
-	const handleGenerateDemoData = () => {
-		if (vanBangs.length > 0 || quyetDinhs.length > 0 || soVanBangs.length > 0) {
-			const shouldReplace = window.confirm(
-				'Dữ liệu hiện tại sẽ bị thay thế bằng dữ liệu mẫu. Bạn có chắc chắn muốn tiếp tục?'
+	const handleSaveClub = async () => {
+		try {
+			const values = await clubForm.validateFields();
+			const duplicatedName = clubs.some(
+				(item) =>
+					item.name.trim().toLowerCase() === values.name.trim().toLowerCase() &&
+					item.id !== editingClub?.id
 			);
-			if (!shouldReplace) {
+			if (duplicatedName) {
+				message.error('Tên câu lạc bộ đã tồn tại');
 				return;
 			}
+
+			if (editingClub) {
+				const updated = clubs.map((item) =>
+					item.id === editingClub.id
+						? {
+								...item,
+								avatarUrl: values.avatarUrl || '',
+								name: values.name.trim(),
+								foundedDate: values.foundedDate.format('YYYY-MM-DD'),
+								descriptionHtml: values.descriptionHtml || '',
+								president: values.president.trim(),
+								status: values.status,
+						  }
+						: item
+				);
+				persistClubs(updated);
+				pushHistory('UPDATE', 'club', [editingClub.id], `Cập nhật CLB ${values.name.trim()}`);
+				message.success('Cập nhật câu lạc bộ thành công');
+			} else {
+				const created: Club = {
+					id: uuidv4(),
+					avatarUrl: values.avatarUrl || '',
+					name: values.name.trim(),
+					foundedDate: values.foundedDate.format('YYYY-MM-DD'),
+					descriptionHtml: values.descriptionHtml || '',
+					president: values.president.trim(),
+					status: values.status,
+					createdAt: Date.now(),
+				};
+				persistClubs([...clubs, created]);
+				pushHistory('CREATE', 'club', [created.id], `Tạo CLB ${created.name}`);
+				message.success('Tạo câu lạc bộ thành công');
+			}
+
+			setEditingClub(null);
+			setClubModalVisible(false);
+			clubForm.resetFields();
+		} catch (_error) {
+			message.error('Vui lòng nhập đầy đủ thông tin câu lạc bộ');
+		}
+	};
+
+	const handleDeleteClub = (clubId: string) => {
+		const usedByApplications = applications.some((item) => item.clubId === clubId);
+		const usedByMembers = members.some((item) => item.clubId === clubId);
+		if (usedByApplications || usedByMembers) {
+			message.error('Không thể xóa CLB vì đang có đơn đăng ký hoặc thành viên liên quan');
+			return;
+		}
+		const deletingName = getClubName(clubId);
+		persistClubs(clubs.filter((item) => item.id !== clubId));
+		pushHistory('DELETE', 'club', [clubId], `Xóa CLB ${deletingName}`);
+		message.success('Xóa câu lạc bộ thành công');
+	};
+
+	const openCreateApplication = () => {
+		if (clubs.length === 0) {
+			message.warning('Cần tạo câu lạc bộ trước khi thêm đơn đăng ký');
+			return;
+		}
+		setEditingApplication(null);
+		applicationForm.resetFields();
+		applicationForm.setFieldsValue({ gender: 'Nam' });
+		setApplicationModalVisible(true);
+	};
+
+	const openEditApplication = (record: RegistrationApplication) => {
+		setEditingApplication(record);
+		applicationForm.setFieldsValue({ ...record });
+		setApplicationModalVisible(true);
+	};
+
+	const openApplicationDetail = (record: RegistrationApplication) => {
+		setViewingApplication(record);
+		setApplicationDetailVisible(true);
+	};
+
+	const syncMemberFromApplication = (
+		nextApplication: RegistrationApplication,
+		existingMembers: ClubMember[]
+	) => {
+		if (nextApplication.status !== 'Approved') {
+			return existingMembers.filter((item) => item.applicationId !== nextApplication.id);
 		}
 
-		const year = dayjs().year();
-		const demoBooks: SoVanBang[] = [
-			{ id: uuidv4(), nam: year, maSo: `SVB-${year}`, createdAt: Date.now() },
-			{ id: uuidv4(), nam: year - 1, maSo: `SVB-${year - 1}`, createdAt: Date.now() },
-		];
+		const existed = existingMembers.find((item) => item.applicationId === nextApplication.id);
+		if (existed) {
+			return existingMembers.map((item) =>
+				item.applicationId === nextApplication.id
+					? {
+							...item,
+							fullName: nextApplication.fullName,
+							email: nextApplication.email,
+							phone: nextApplication.phone,
+							gender: nextApplication.gender,
+							address: nextApplication.address,
+							talent: nextApplication.talent,
+							clubId: nextApplication.clubId,
+						  }
+					: item
+			);
+		}
 
-		const demoDecisions: QuyetDinhTotNghiep[] = [
+		return [
+			...existingMembers,
 			{
 				id: uuidv4(),
-				soQuyetDinh: `21/QD-DHTL-${year}`,
-				ngayBanHanh: `${year}-03-15`,
-				trichYeu: 'Công nhận tốt nghiệp đợt 1',
-				soVanBangId: demoBooks[0].id,
-				lookupCount: 0,
-				createdAt: Date.now(),
-			},
-			{
-				id: uuidv4(),
-				soQuyetDinh: `22/QD-DHTL-${year}`,
-				ngayBanHanh: `${year}-06-20`,
-				trichYeu: 'Công nhận tốt nghiệp đợt 2',
-				soVanBangId: demoBooks[0].id,
-				lookupCount: 0,
-				createdAt: Date.now(),
-			},
-			{
-				id: uuidv4(),
-				soQuyetDinh: `18/QD-DHTL-${year - 1}`,
-				ngayBanHanh: `${year - 1}-11-02`,
-				trichYeu: 'Công nhận tốt nghiệp bổ sung',
-				soVanBangId: demoBooks[1].id,
-				lookupCount: 0,
-				createdAt: Date.now(),
+				applicationId: nextApplication.id,
+				fullName: nextApplication.fullName,
+				email: nextApplication.email,
+				phone: nextApplication.phone,
+				gender: nextApplication.gender,
+				address: nextApplication.address,
+				talent: nextApplication.talent,
+				clubId: nextApplication.clubId,
+				joinedAt: Date.now(),
 			},
 		];
-
-		const demoFields: TruongDuLieu[] = [
-			...DEFAULT_TRUONG_DU_LIEU,
-			{ id: uuidv4(), key: 'dan_toc', label: 'Dân tộc', kieuDuLieu: 'string', createdAt: Date.now() },
-			{ id: uuidv4(), key: 'noi_sinh', label: 'Nơi sinh', kieuDuLieu: 'string', createdAt: Date.now() },
-			{ id: uuidv4(), key: 'ngay_nhap_hoc', label: 'Ngày nhập học', kieuDuLieu: 'date', createdAt: Date.now() },
-		];
-
-		const byKey = (key: string) => demoFields.find((item) => item.key === key)?.id || '';
-
-		const demoDiplomas: VanBang[] = [
-			{
-				id: uuidv4(),
-				soVanBangId: demoBooks[0].id,
-				quyetDinhId: demoDecisions[0].id,
-				soVaoSo: 1,
-				soHieuVanBang: `VB-${year}-0001`,
-				maSinhVien: 'A10001',
-				hoTen: 'Nguyen Van An',
-				ngaySinh: `${year - 22}-01-10`,
-				duLieuMoRong: {
-					[byKey('diem_trung_binh')]: 3.45,
-					[byKey('xep_hang')]: 'Khá',
-					[byKey('he_dao_tao')]: 'Chính quy',
-					[byKey('dan_toc')]: 'Kinh',
-					[byKey('noi_sinh')]: 'Hà Nội',
-					[byKey('ngay_nhap_hoc')]: `${year - 26}-09-05`,
-				},
-				createdAt: Date.now(),
-			},
-			{
-				id: uuidv4(),
-				soVanBangId: demoBooks[0].id,
-				quyetDinhId: demoDecisions[1].id,
-				soVaoSo: 2,
-				soHieuVanBang: `VB-${year}-0002`,
-				maSinhVien: 'A10002',
-				hoTen: 'Tran Thi Bich',
-				ngaySinh: `${year - 22}-03-21`,
-				duLieuMoRong: {
-					[byKey('diem_trung_binh')]: 3.82,
-					[byKey('xep_hang')]: 'Giỏi',
-					[byKey('he_dao_tao')]: 'Chính quy',
-					[byKey('dan_toc')]: 'Kinh',
-					[byKey('noi_sinh')]: 'Đà Nẵng',
-					[byKey('ngay_nhap_hoc')]: `${year - 26}-09-05`,
-				},
-				createdAt: Date.now(),
-			},
-			{
-				id: uuidv4(),
-				soVanBangId: demoBooks[1].id,
-				quyetDinhId: demoDecisions[2].id,
-				soVaoSo: 1,
-				soHieuVanBang: `VB-${year - 1}-0042`,
-				maSinhVien: 'B20042',
-				hoTen: 'Le Quoc Cuong',
-				ngaySinh: `${year - 23}-12-02`,
-				duLieuMoRong: {
-					[byKey('diem_trung_binh')]: 2.95,
-					[byKey('xep_hang')]: 'Trung bình khá',
-					[byKey('he_dao_tao')]: 'Vừa học vừa làm',
-					[byKey('dan_toc')]: 'Tày',
-					[byKey('noi_sinh')]: 'Thái Nguyên',
-					[byKey('ngay_nhap_hoc')]: `${year - 27}-09-05`,
-				},
-				createdAt: Date.now(),
-			},
-		];
-
-		persistSoVanBangs(demoBooks);
-		persistQuyetDinhs(demoDecisions);
-		persistTruongDuLieus(demoFields);
-		persistVanBangs(demoDiplomas);
-		setSearchResults([]);
-		message.success('Đã tạo dữ liệu mẫu thành công');
 	};
+
+	const handleSaveApplication = async () => {
+		try {
+			const values = await applicationForm.validateFields();
+			if (editingApplication) {
+				const nextApp: RegistrationApplication = {
+					...editingApplication,
+					fullName: values.fullName.trim(),
+					email: values.email.trim(),
+					phone: values.phone.trim(),
+					gender: values.gender,
+					address: values.address.trim(),
+					talent: values.talent.trim(),
+					clubId: values.clubId,
+					reason: values.reason.trim(),
+					note: values.note?.trim(),
+					updatedAt: Date.now(),
+				};
+
+				const nextApplications = applications.map((item) =>
+					item.id === editingApplication.id ? nextApp : item
+				);
+				persistApplications(nextApplications);
+				const nextMembers = syncMemberFromApplication(nextApp, members);
+				persistMembers(nextMembers);
+				pushHistory('UPDATE', 'application', [editingApplication.id], `Cập nhật đơn ${nextApp.fullName}`);
+				message.success('Cập nhật đơn đăng ký thành công');
+			} else {
+				const created: RegistrationApplication = {
+					id: uuidv4(),
+					fullName: values.fullName.trim(),
+					email: values.email.trim(),
+					phone: values.phone.trim(),
+					gender: values.gender,
+					address: values.address.trim(),
+					talent: values.talent.trim(),
+					clubId: values.clubId,
+					reason: values.reason.trim(),
+					status: 'Pending',
+					note: values.note?.trim(),
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+				};
+				persistApplications([...applications, created]);
+				pushHistory('CREATE', 'application', [created.id], `Tạo đơn đăng ký ${created.fullName}`);
+				message.success('Tạo đơn đăng ký thành công');
+			}
+
+			setEditingApplication(null);
+			setApplicationModalVisible(false);
+			applicationForm.resetFields();
+		} catch (_error) {
+			message.error('Vui lòng nhập đầy đủ thông tin đơn đăng ký');
+		}
+	};
+
+	const handleDeleteApplication = (applicationId: string) => {
+		const app = applications.find((item) => item.id === applicationId);
+		const nextApps = applications.filter((item) => item.id !== applicationId);
+		const nextMembers = members.filter((item) => item.applicationId !== applicationId);
+		persistApplications(nextApps);
+		persistMembers(nextMembers);
+		pushHistory('DELETE', 'application', [applicationId], `Xóa đơn đăng ký ${app?.fullName || ''}`);
+		message.success('Xóa đơn đăng ký thành công');
+	};
+
+	const applyApproval = (ids: string[]) => {
+		if (ids.length === 0) {
+			return;
+		}
+		const nextApplications = applications.map((item) => {
+			if (!ids.includes(item.id)) {
+				return item;
+			}
+			return {
+				...item,
+				status: 'Approved' as ApplicationStatus,
+				rejectionReason: undefined,
+				updatedAt: Date.now(),
+			};
+		});
+
+		const nextMembers = nextApplications.reduce((acc, app) => {
+			return syncMemberFromApplication(app, acc);
+		}, members);
+
+		persistApplications(nextApplications);
+		persistMembers(nextMembers);
+		setSelectedApplicationRowKeys([]);
+		pushHistory('APPROVE', 'application', ids, `${ADMIN_NAME} đã duyệt ${ids.length} đơn đăng ký`);
+		message.success(`Đã duyệt ${ids.length} đơn đăng ký`);
+	};
+
+	const openRejectModal = (ids: string[]) => {
+		if (ids.length === 0) {
+			return;
+		}
+		setPendingRejectIds(ids);
+		rejectForm.resetFields();
+		setRejectModalVisible(true);
+	};
+
+	const confirmRejectApplications = async () => {
+		try {
+			const values = await rejectForm.validateFields();
+			const reason = values.reason.trim();
+			const nextApplications = applications.map((item) => {
+				if (!pendingRejectIds.includes(item.id)) {
+					return item;
+				}
+				return {
+					...item,
+					status: 'Rejected' as ApplicationStatus,
+					rejectionReason: reason,
+					updatedAt: Date.now(),
+				};
+			});
+			persistApplications(nextApplications);
+			persistMembers(members.filter((item) => !pendingRejectIds.includes(item.applicationId)));
+			pushHistory(
+				'REJECT',
+				'application',
+				pendingRejectIds,
+				`${ADMIN_NAME} đã từ chối ${pendingRejectIds.length} đơn. Lý do: ${reason}`
+			);
+			setSelectedApplicationRowKeys([]);
+			setPendingRejectIds([]);
+			setRejectModalVisible(false);
+			rejectForm.resetFields();
+			message.success(`Đã từ chối ${pendingRejectIds.length} đơn đăng ký`);
+		} catch (_error) {
+			message.error('Vui lòng nhập lý do từ chối');
+		}
+	};
+
+	const openTransferModal = () => {
+		if (selectedMemberRowKeys.length === 0) {
+			return;
+		}
+		transferForm.resetFields();
+		setTransferModalVisible(true);
+	};
+
+	const handleTransferMembers = async () => {
+		try {
+			const values = await transferForm.validateFields();
+			const nextMembers = members.map((item) =>
+				selectedMemberRowKeys.includes(item.id) ? { ...item, clubId: values.targetClubId } : item
+			);
+			persistMembers(nextMembers);
+			pushHistory(
+				'TRANSFER_CLUB',
+				'member',
+				selectedMemberRowKeys,
+				`Chuyển ${selectedMemberRowKeys.length} thành viên sang CLB ${getClubName(values.targetClubId)}`
+			);
+			setTransferModalVisible(false);
+			setSelectedMemberRowKeys([]);
+			transferForm.resetFields();
+			message.success(`Đã chuyển ${selectedMemberRowKeys.length} thành viên`);
+		} catch (_error) {
+			message.error('Vui lòng chọn CLB muốn chuyển đến');
+		}
+	};
+
+	const openClubMembers = (clubId: string) => {
+		setMemberClubFilter(clubId);
+		setActiveTab('members');
+	};
+
+	const clubColumns = [
+		{
+			title: 'Ảnh đại diện',
+			dataIndex: 'avatarUrl',
+			key: 'avatarUrl',
+			width: 110,
+			render: (value: string, record: Club) => (
+				<Avatar
+					src={value || undefined}
+					size={56}
+					shape='square'
+					style={{ backgroundColor: '#1677ff' }}
+				>
+					{record.name.charAt(0).toUpperCase()}
+				</Avatar>
+			),
+		},
+		{
+			title: 'Tên câu lạc bộ',
+			dataIndex: 'name',
+			key: 'name',
+			sorter: (a: Club, b: Club) => a.name.localeCompare(b.name),
+		},
+		{
+			title: 'Ngày thành lập',
+			dataIndex: 'foundedDate',
+			key: 'foundedDate',
+			render: (value: string) => dayjs(value).format('DD/MM/YYYY'),
+			sorter: (a: Club, b: Club) => dayjs(a.foundedDate).valueOf() - dayjs(b.foundedDate).valueOf(),
+		},
+		{
+			title: 'Mô tả',
+			dataIndex: 'descriptionHtml',
+			key: 'descriptionHtml',
+			render: (value: string) => (
+				<div style={{ maxWidth: 320 }} dangerouslySetInnerHTML={{ __html: value || '<i>Trống</i>' }} />
+			),
+		},
+		{
+			title: 'Chủ nhiệm CLB',
+			dataIndex: 'president',
+			key: 'president',
+			sorter: (a: Club, b: Club) => a.president.localeCompare(b.president),
+		},
+		{
+			title: 'Hoạt động',
+			dataIndex: 'status',
+			key: 'status',
+			width: 120,
+			render: (value: ClubStatus) =>
+				value === 'active' ? <Tag color='green'>Có</Tag> : <Tag color='default'>Không</Tag>,
+			filters: [
+				{ text: 'Có', value: 'active' },
+				{ text: 'Không', value: 'inactive' },
+			],
+			onFilter: (value: string | number | boolean, record: Club) => record.status === value,
+		},
+		{
+			title: 'Thao tác',
+			key: 'action',
+			width: 320,
+			render: (_: unknown, record: Club) => (
+				<Space>
+					<Button size='small' icon={<EditOutlined />} onClick={() => openEditClub(record)}>
+						Chỉnh sửa
+					</Button>
+					<Popconfirm title='Xóa câu lạc bộ này?' onConfirm={() => handleDeleteClub(record.id)}>
+						<Button size='small' danger icon={<DeleteOutlined />}>
+							Xóa
+						</Button>
+					</Popconfirm>
+					<Button
+						size='small'
+						icon={<TeamOutlined />}
+						onClick={() => openClubMembers(record.id)}
+					>
+						Thành viên
+					</Button>
+				</Space>
+			),
+		},
+	];
+
+	const applicationColumns = [
+		{ title: 'Họ tên', dataIndex: 'fullName', key: 'fullName', sorter: (a: RegistrationApplication, b: RegistrationApplication) => a.fullName.localeCompare(b.fullName) },
+		{ title: 'Email', dataIndex: 'email', key: 'email' },
+		{ title: 'SĐT', dataIndex: 'phone', key: 'phone' },
+		{ title: 'Giới tính', dataIndex: 'gender', key: 'gender', width: 100 },
+		{ title: 'Địa chỉ', dataIndex: 'address', key: 'address', ellipsis: true },
+		{ title: 'Sở trường', dataIndex: 'talent', key: 'talent', ellipsis: true },
+		{
+			title: 'Câu lạc bộ',
+			dataIndex: 'clubId',
+			key: 'clubId',
+			render: (value: string) => getClubName(value),
+		},
+		{ title: 'Lý do đăng ký', dataIndex: 'reason', key: 'reason', ellipsis: true },
+		{
+			title: 'Trạng thái',
+			dataIndex: 'status',
+			key: 'status',
+			width: 130,
+			render: (value: ApplicationStatus) => {
+				if (value === 'Approved') {
+					return <Tag color='green'>Approved</Tag>;
+				}
+				if (value === 'Rejected') {
+					return <Tag color='red'>Rejected</Tag>;
+				}
+				return <Tag color='gold'>Pending</Tag>;
+			},
+			filters: [
+				{ text: 'Pending', value: 'Pending' },
+				{ text: 'Approved', value: 'Approved' },
+				{ text: 'Rejected', value: 'Rejected' },
+			],
+			onFilter: (value: string | number | boolean, record: RegistrationApplication) =>
+				record.status === value,
+		},
+		{ title: 'Ghi chú', dataIndex: 'note', key: 'note', ellipsis: true },
+		{
+			title: 'Thao tác',
+			key: 'action',
+			width: 360,
+			render: (_: unknown, record: RegistrationApplication) => (
+				<Space wrap>
+					<Button size='small' icon={<EyeOutlined />} onClick={() => openApplicationDetail(record)}>
+						Chi tiết
+					</Button>
+					<Button size='small' icon={<EditOutlined />} onClick={() => openEditApplication(record)}>
+						Chỉnh sửa
+					</Button>
+					<Popconfirm title='Xóa đơn đăng ký này?' onConfirm={() => handleDeleteApplication(record.id)}>
+						<Button size='small' danger icon={<DeleteOutlined />}>
+							Xóa
+						</Button>
+					</Popconfirm>
+					<Button
+						size='small'
+						type='primary'
+						icon={<CheckCircleOutlined />}
+						onClick={() => applyApproval([record.id])}
+						disabled={record.status === 'Approved'}
+					>
+						Duyệt
+					</Button>
+					<Button
+						size='small'
+						danger
+						icon={<CloseCircleOutlined />}
+						onClick={() => openRejectModal([record.id])}
+					>
+						Từ chối
+					</Button>
+				</Space>
+			),
+		},
+	];
+
+	const memberColumns = [
+		{ title: 'Họ tên', dataIndex: 'fullName', key: 'fullName', sorter: (a: ClubMember, b: ClubMember) => a.fullName.localeCompare(b.fullName) },
+		{ title: 'Email', dataIndex: 'email', key: 'email' },
+		{ title: 'SĐT', dataIndex: 'phone', key: 'phone' },
+		{ title: 'Giới tính', dataIndex: 'gender', key: 'gender', width: 100 },
+		{ title: 'Địa chỉ', dataIndex: 'address', key: 'address', ellipsis: true },
+		{ title: 'Sở trường', dataIndex: 'talent', key: 'talent', ellipsis: true },
+		{
+			title: 'Câu lạc bộ',
+			dataIndex: 'clubId',
+			key: 'clubId',
+			render: (value: string) => getClubName(value),
+		},
+		{
+			title: 'Ngày tham gia',
+			dataIndex: 'joinedAt',
+			key: 'joinedAt',
+			render: (value: number) => dayjs(value).format('HH:mm DD/MM/YYYY'),
+			sorter: (a: ClubMember, b: ClubMember) => a.joinedAt - b.joinedAt,
+		},
+	];
+
+	const historyColumns = [
+		{
+			title: 'Thời gian',
+			dataIndex: 'createdAt',
+			key: 'createdAt',
+			render: (value: number) => dayjs(value).format('HH:mm DD/MM/YYYY'),
+			sorter: (a: ActionHistory, b: ActionHistory) => b.createdAt - a.createdAt,
+		},
+		{
+			title: 'Hành động',
+			dataIndex: 'action',
+			key: 'action',
+			render: (value: HistoryAction) => {
+				const colorMap: Record<HistoryAction, string> = {
+					CREATE: 'blue',
+					UPDATE: 'cyan',
+					DELETE: 'red',
+					APPROVE: 'green',
+					REJECT: 'volcano',
+					TRANSFER_CLUB: 'purple',
+				};
+				return <Tag color={colorMap[value]}>{value}</Tag>;
+			},
+		},
+		{ title: 'Đối tượng', dataIndex: 'target', key: 'target' },
+		{ title: 'Nội dung', dataIndex: 'detail', key: 'detail' },
+		{ title: 'Người thao tác', dataIndex: 'operator', key: 'operator', width: 130 },
+	];
 
 	return (
 		<div style={{ padding: 20 }}>
-			<h1>Quản lý văn bằng tốt nghiệp</h1>
-			<p style={{ color: '#666', marginBottom: 20 }}>
-				Quản lý sổ văn bằng, quyết định tốt nghiệp, cấu hình biểu mẫu phụ lục, thông tin văn bằng và tra cứu.
-			</p>
-			<Space style={{ marginBottom: 16 }}>
-				<Button onClick={handleGenerateDemoData}>Tạo dữ liệu mẫu</Button>
-				<Button icon={<DownloadOutlined />} onClick={handleExportJson} disabled={vanBangs.length === 0}>
-					Xuất dữ liệu
-				</Button>
-				<Button icon={<DownloadOutlined />} onClick={handleExportCsv} disabled={vanBangs.length === 0}>
-					Xuất danh sách Excel
-				</Button>
-			</Space>
+			<h1>TH05 - Quản lý câu lạc bộ và đăng ký tham gia</h1>
+			<Text type='secondary'>
+				Quản lý CLB, đơn đăng ký, thành viên và báo cáo thống kê theo yêu cầu bài tập.
+			</Text>
 
-			<Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+			<Row gutter={[16, 16]} style={{ marginTop: 16, marginBottom: 20 }}>
 				<Col xs={24} md={6}>
 					<Card>
-						<Statistic title="Sổ văn bằng" value={soVanBangs.length} />
+						<Statistic title='Số CLB' value={stats.clubCount} />
 					</Card>
 				</Col>
 				<Col xs={24} md={6}>
 					<Card>
-						<Statistic title="Quyết định tốt nghiệp" value={quyetDinhs.length} />
+						<Statistic title='Đơn Pending' value={stats.pending} valueStyle={{ color: '#faad14' }} />
 					</Card>
 				</Col>
 				<Col xs={24} md={6}>
 					<Card>
-						<Statistic title="Văn bằng đã cấp" value={vanBangs.length} />
+						<Statistic title='Đơn Approved' value={stats.approved} valueStyle={{ color: '#52c41a' }} />
 					</Card>
 				</Col>
 				<Col xs={24} md={6}>
 					<Card>
-						<Statistic title="Tổng lượt tra cứu" value={totalLookup} />
+						<Statistic title='Đơn Rejected' value={stats.rejected} valueStyle={{ color: '#ff4d4f' }} />
 					</Card>
 				</Col>
 			</Row>
 
-			<Tabs>
-				<Tabs.TabPane tab="Sổ văn bằng" key="1">
-					<Button type="primary" icon={<PlusOutlined />} onClick={openCreateBook} style={{ marginBottom: 16 }}>
-						Thêm sổ văn bằng
-					</Button>
-					<Table dataSource={soVanBangs} columns={bookColumns} rowKey="id" />
+			<Card style={{ marginBottom: 20 }}>
+				{clubs.length === 0 ? (
+					<Empty description='Chưa có dữ liệu biểu đồ do chưa tạo câu lạc bộ' />
+				) : (
+					<ColumnChart
+						title='Số đơn đăng ký theo từng CLB'
+						xAxis={chartData.xAxis}
+						yAxis={chartData.yAxis}
+						yLabel={['Pending', 'Approved', 'Rejected']}
+						colors={['#faad14', '#52c41a', '#ff4d4f']}
+						height={320}
+						formatY={(value) => `${Math.round(value)}`}
+					/>
+				)}
+			</Card>
+
+			<Tabs activeKey={activeTab} onChange={setActiveTab}>
+				<Tabs.TabPane tab='1. Danh sách câu lạc bộ' key='clubs'>
+					<Space style={{ marginBottom: 16 }}>
+						<Button type='primary' icon={<PlusOutlined />} onClick={openCreateClub}>
+							Thêm mới CLB
+						</Button>
+						<Input
+							placeholder='Tìm theo tên CLB/chủ nhiệm'
+							allowClear
+							style={{ width: 280 }}
+							value={clubKeyword}
+							onChange={(event) => setClubKeyword(event.target.value)}
+						/>
+					</Space>
+					<Table
+						rowKey='id'
+						dataSource={filteredClubs}
+						columns={clubColumns}
+						scroll={{ x: 1400 }}
+					/>
 				</Tabs.TabPane>
 
-				<Tabs.TabPane tab="Quyết định tốt nghiệp" key="2">
-					<Button
-						type="primary"
-						icon={<PlusOutlined />}
-						onClick={openCreateDecision}
-						style={{ marginBottom: 16 }}
-						disabled={soVanBangs.length === 0}
-					>
-						Thêm quyết định
-					</Button>
-					{soVanBangs.length === 0 && (
-						<p style={{ color: '#888' }}>Bạn cần tạo ít nhất 1 sổ văn bằng trước khi tạo quyết định.</p>
-					)}
-					<Table dataSource={quyetDinhs} columns={decisionColumns} rowKey="id" />
+				<Tabs.TabPane tab='2. Quản lý đơn đăng ký' key='applications'>
+					<Space style={{ marginBottom: 16 }} wrap>
+						<Button type='primary' icon={<PlusOutlined />} onClick={openCreateApplication}>
+							Thêm mới đơn
+						</Button>
+						<Button
+							type='primary'
+							icon={<CheckCircleOutlined />}
+							disabled={selectedApplicationRowKeys.length === 0}
+							onClick={() => applyApproval(selectedApplicationRowKeys)}
+						>
+							Duyệt {selectedApplicationRowKeys.length} đơn đã chọn
+						</Button>
+						<Button
+							danger
+							icon={<CloseCircleOutlined />}
+							disabled={selectedApplicationRowKeys.length === 0}
+							onClick={() => openRejectModal(selectedApplicationRowKeys)}
+						>
+							Không duyệt {selectedApplicationRowKeys.length} đơn đã chọn
+						</Button>
+						<Button onClick={() => setHistoryModalVisible(true)}>Xem lịch sử thao tác</Button>
+						<Input
+							placeholder='Tìm theo họ tên/email/SĐT'
+							allowClear
+							style={{ width: 260 }}
+							value={applicationKeyword}
+							onChange={(event) => setApplicationKeyword(event.target.value)}
+						/>
+					</Space>
+
+					<Table
+						rowKey='id'
+						dataSource={filteredApplications}
+						columns={applicationColumns}
+						scroll={{ x: 1800 }}
+						rowSelection={{
+							selectedRowKeys: selectedApplicationRowKeys,
+							onChange: (keys) => setSelectedApplicationRowKeys(keys as string[]),
+						}}
+					/>
 				</Tabs.TabPane>
 
-				<Tabs.TabPane tab="Cấu hình biểu mẫu" key="3">
-					<Button type="primary" icon={<PlusOutlined />} onClick={openCreateField} style={{ marginBottom: 16 }}>
-						Thêm trường dữ liệu
-					</Button>
-					<Table dataSource={truongDuLieus} columns={fieldColumns} rowKey="id" pagination={false} />
-				</Tabs.TabPane>
-
-				<Tabs.TabPane tab="Thông tin văn bằng" key="4">
-					<Button
-						type="primary"
-						icon={<PlusOutlined />}
-						onClick={openCreateDiploma}
-						style={{ marginBottom: 16 }}
-						disabled={quyetDinhs.length === 0}
-					>
-						Thêm văn bằng
-					</Button>
-					{vanBangs.length === 0 ? (
-						<Empty description="Chưa có dữ liệu văn bằng" />
-					) : (
-						<Table dataSource={vanBangs} columns={diplomaColumns} rowKey="id" scroll={{ x: 1200 }} />
-					)}
-				</Tabs.TabPane>
-
-				<Tabs.TabPane tab="Tra cứu văn bằng" key="5">
-					<Card style={{ marginBottom: 16 }}>
-						<Form form={searchForm} layout="vertical">
-							<Row gutter={[16, 8]}>
-								<Col xs={24} md={8}>
-									<Form.Item label="Số hiệu văn bằng" name="soHieuVanBang">
-										<Input placeholder="Nhập số hiệu văn bằng" />
-									</Form.Item>
-								</Col>
-								<Col xs={24} md={8}>
-									<Form.Item label="Số vào sổ" name="soVaoSo">
-										<InputNumber style={{ width: '100%' }} min={1} />
-									</Form.Item>
-								</Col>
-								<Col xs={24} md={8}>
-									<Form.Item label="Mã sinh viên" name="maSinhVien">
-										<Input placeholder="Nhập mã sinh viên" />
-									</Form.Item>
-								</Col>
-								<Col xs={24} md={8}>
-									<Form.Item label="Họ tên" name="hoTen">
-										<Input placeholder="Nhập họ tên" />
-									</Form.Item>
-								</Col>
-								<Col xs={24} md={8}>
-									<Form.Item label="Ngày sinh" name="ngaySinh">
-										<DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-									</Form.Item>
-								</Col>
-								<Col xs={24} md={8} style={{ display: 'flex', alignItems: 'end' }}>
-									<Space>
-										<Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-											Tra cứu
-										</Button>
-										<Button
-											onClick={() => {
-												searchForm.resetFields();
-												setSearchResults([]);
-											}}
-										>
-											Xóa bộ lọc
-										</Button>
-									</Space>
-								</Col>
-							</Row>
-						</Form>
-						<p style={{ marginTop: 8, color: '#888' }}>
-							Yêu cầu nhập ít nhất 2 tham số: số hiệu văn bằng, số vào sổ, MSV, họ tên hoặc ngày sinh.
-						</p>
-					</Card>
-
-					{searchResults.length === 0 ? (
-						<Empty description="Chưa có kết quả tra cứu" />
-					) : (
-						<Table dataSource={searchResults} columns={searchColumns} rowKey="id" />
-					)}
+				<Tabs.TabPane tab='3. Quản lý thành viên CLB' key='members'>
+					<Space style={{ marginBottom: 16 }} wrap>
+						<Button
+							type='primary'
+							disabled={selectedMemberRowKeys.length === 0}
+							onClick={openTransferModal}
+						>
+							Đổi CLB cho {selectedMemberRowKeys.length} thành viên đã chọn
+						</Button>
+						<Input
+							placeholder='Tìm theo họ tên/email/SĐT'
+							allowClear
+							style={{ width: 260 }}
+							value={memberKeyword}
+							onChange={(event) => setMemberKeyword(event.target.value)}
+						/>
+						{memberClubFilter && (
+							<Tag
+								closable
+								onClose={() => {
+									setMemberClubFilter(undefined);
+								}}
+							>
+								Đang lọc theo CLB: {getClubName(memberClubFilter)}
+							</Tag>
+						)}
+					</Space>
+					<Table
+						rowKey='id'
+						dataSource={filteredMembers}
+						columns={memberColumns}
+						scroll={{ x: 1300 }}
+						rowSelection={{
+							selectedRowKeys: selectedMemberRowKeys,
+							onChange: (keys) => setSelectedMemberRowKeys(keys as string[]),
+						}}
+					/>
 				</Tabs.TabPane>
 			</Tabs>
 
 			<Modal
-				title={editingBook ? 'Sửa sổ văn bằng' : 'Thêm sổ văn bằng'}
-				visible={bookModalVisible}
+				title={editingClub ? 'Chỉnh sửa câu lạc bộ' : 'Thêm mới câu lạc bộ'}
+				visible={clubModalVisible}
+				width={900}
 				onCancel={() => {
-					setBookModalVisible(false);
-					setEditingBook(null);
-					bookForm.resetFields();
+					setClubModalVisible(false);
+					setEditingClub(null);
+					clubForm.resetFields();
 				}}
-				onOk={handleSaveBook}
+				onOk={handleSaveClub}
 			>
-				<Form form={bookForm} layout="vertical">
-					<Form.Item
-						name="nam"
-						label="Năm sổ"
-						rules={[{ required: true, message: 'Vui lòng nhập năm sổ' }]}
-					>
-						<InputNumber min={1990} max={2200} style={{ width: '100%' }} />
-					</Form.Item>
-					<Form.Item
-						name="maSo"
-						label="Mã sổ văn bằng"
-						rules={[{ required: true, message: 'Vui lòng nhập mã sổ văn bằng' }]}
-					>
-						<Input placeholder="Ví dụ: SVB-2026" />
-					</Form.Item>
-				</Form>
-			</Modal>
-
-			<Modal
-				title={editingDecision ? 'Sửa quyết định tốt nghiệp' : 'Thêm quyết định tốt nghiệp'}
-				visible={decisionModalVisible}
-				onCancel={() => {
-					setDecisionModalVisible(false);
-					setEditingDecision(null);
-					decisionForm.resetFields();
-				}}
-				onOk={handleSaveDecision}
-			>
-				<Form form={decisionForm} layout="vertical">
-					<Form.Item
-						name="soQuyetDinh"
-						label="Số quyết định"
-						rules={[{ required: true, message: 'Vui lòng nhập số quyết định' }]}
-					>
-						<Input placeholder="Ví dụ: 21/QĐ-ĐHTL" />
-					</Form.Item>
-					<Form.Item
-						name="ngayBanHanh"
-						label="Ngày ban hành"
-						rules={[{ required: true, message: 'Vui lòng chọn ngày ban hành' }]}
-					>
-						<DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-					</Form.Item>
-					<Form.Item
-						name="trichYeu"
-						label="Trích yếu"
-						rules={[{ required: true, message: 'Vui lòng nhập trích yếu' }]}
-					>
-						<Input.TextArea rows={3} placeholder="Nội dung trích yếu quyết định" />
-					</Form.Item>
-					<Form.Item
-						name="soVanBangId"
-						label="Thuộc sổ văn bằng"
-						rules={[{ required: true, message: 'Vui lòng chọn sổ văn bằng' }]}
-					>
-						<Select placeholder="Chọn sổ văn bằng">
-							{soVanBangs.map((item) => (
-								<Select.Option key={item.id} value={item.id}>
-									{getSoVanBangName(item.id)}
-								</Select.Option>
-							))}
-						</Select>
-					</Form.Item>
-				</Form>
-			</Modal>
-
-			<Modal
-				title={editingField ? 'Sửa trường dữ liệu' : 'Thêm trường dữ liệu'}
-				visible={fieldModalVisible}
-				onCancel={() => {
-					setFieldModalVisible(false);
-					setEditingField(null);
-					fieldForm.resetFields();
-				}}
-				onOk={handleSaveField}
-			>
-				<Form form={fieldForm} layout="vertical">
-					<Form.Item
-						name="label"
-						label="Tên trường"
-						rules={[{ required: true, message: 'Vui lòng nhập tên trường' }]}
-					>
-						<Input placeholder="Ví dụ: Dân tộc" />
-					</Form.Item>
-					<Form.Item
-						name="key"
-						label="Khóa dữ liệu"
-						rules={[
-							{ required: true, message: 'Vui lòng nhập khóa dữ liệu' },
-							{
-								pattern: /^[a-z0-9_]+$/,
-								message: 'Chỉ dùng chữ thường, số và dấu gạch dưới',
-							},
-						]}
-					>
-						<Input placeholder="Vi du: dan_toc" />
-					</Form.Item>
-					<Form.Item
-						name="kieuDuLieu"
-						label="Kiểu dữ liệu"
-						rules={[{ required: true, message: 'Vui lòng chọn kiểu dữ liệu' }]}
-					>
-						<Select placeholder="Chọn kiểu dữ liệu">
-							<Select.Option value="string">String</Select.Option>
-							<Select.Option value="number">Number</Select.Option>
-							<Select.Option value="date">Date</Select.Option>
-						</Select>
-					</Form.Item>
-				</Form>
-			</Modal>
-
-			<Modal
-				title={editingDiploma ? 'Sửa thông tin văn bằng' : 'Thêm thông tin văn bằng'}
-				visible={diplomaModalVisible}
-				width={800}
-				onCancel={() => {
-					setDiplomaModalVisible(false);
-					setEditingDiploma(null);
-					diplomaForm.resetFields();
-				}}
-				onOk={handleSaveDiploma}
-			>
-				<Form form={diplomaForm} layout="vertical">
+				<Form form={clubForm} layout='vertical'>
 					<Row gutter={[12, 0]}>
 						<Col xs={24} md={12}>
-							<Form.Item
-								name="quyetDinhId"
-								label="Quyết định tốt nghiệp"
-								rules={[{ required: true, message: 'Vui lòng chọn quyết định tốt nghiệp' }]}
-							>
-								<Select placeholder="Chọn quyết định tốt nghiệp">
-									{quyetDinhs.map((item) => (
-										<Select.Option key={item.id} value={item.id}>
-											{item.soQuyetDinh} - {item.trichYeu}
-										</Select.Option>
-									))}
-								</Select>
-							</Form.Item>
-						</Col>
-						<Col xs={24} md={12}>
-							<Form.Item label="Số vào sổ (tự động)">
-								<Input value={previewSoVaoSo} disabled />
-							</Form.Item>
-						</Col>
-
-						<Col xs={24} md={12}>
-							<Form.Item
-								name="soHieuVanBang"
-								label="Số hiệu văn bằng"
-								rules={[{ required: true, message: 'Vui lòng nhập số hiệu văn bằng' }]}
-							>
-								<Input placeholder="Ví dụ: VB-2026-0001" />
+							<Form.Item name='avatarUrl' label='Ảnh đại diện (URL)'>
+								<Input placeholder='https://...' />
 							</Form.Item>
 						</Col>
 						<Col xs={24} md={12}>
 							<Form.Item
-								name="maSinhVien"
-								label="Mã sinh viên"
-								rules={[{ required: true, message: 'Vui lòng nhập mã sinh viên' }]}
+								name='name'
+								label='Tên câu lạc bộ'
+								rules={[{ required: true, message: 'Vui lòng nhập tên câu lạc bộ' }]}
 							>
 								<Input />
 							</Form.Item>
 						</Col>
 						<Col xs={24} md={12}>
 							<Form.Item
-								name="hoTen"
-								label="Họ tên"
+								name='foundedDate'
+								label='Ngày thành lập'
+								rules={[{ required: true, message: 'Vui lòng chọn ngày thành lập' }]}
+							>
+								<DatePicker style={{ width: '100%' }} format='DD/MM/YYYY' />
+							</Form.Item>
+						</Col>
+						<Col xs={24} md={12}>
+							<Form.Item
+								name='president'
+								label='Chủ nhiệm CLB'
+								rules={[{ required: true, message: 'Vui lòng nhập chủ nhiệm CLB' }]}
+							>
+								<Input />
+							</Form.Item>
+						</Col>
+						<Col xs={24} md={12}>
+							<Form.Item
+								name='status'
+								label='Hoạt động'
+								rules={[{ required: true, message: 'Vui lòng chọn trạng thái hoạt động' }]}
+							>
+								<Select>
+									<Select.Option value='active'>Có</Select.Option>
+									<Select.Option value='inactive'>Không</Select.Option>
+								</Select>
+							</Form.Item>
+						</Col>
+						<Col xs={24}>
+							<Form.Item name='descriptionHtml' label='Mô tả (HTML)'>
+								<TinyEditor height={280} minHeight={120} miniToolbar hideMenubar />
+							</Form.Item>
+						</Col>
+					</Row>
+				</Form>
+			</Modal>
+
+			<Modal
+				title={editingApplication ? 'Chỉnh sửa đơn đăng ký' : 'Thêm mới đơn đăng ký'}
+				visible={applicationModalVisible}
+				width={900}
+				onCancel={() => {
+					setApplicationModalVisible(false);
+					setEditingApplication(null);
+					applicationForm.resetFields();
+				}}
+				onOk={handleSaveApplication}
+			>
+				<Form form={applicationForm} layout='vertical'>
+					<Row gutter={[12, 0]}>
+						<Col xs={24} md={12}>
+							<Form.Item
+								name='fullName'
+								label='Họ tên'
 								rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
 							>
 								<Input />
@@ -1249,76 +1042,169 @@ const QuanLyHocTapPage: React.FC = () => {
 						</Col>
 						<Col xs={24} md={12}>
 							<Form.Item
-								name="ngaySinh"
-								label="Ngày sinh"
-								rules={[{ required: true, message: 'Vui lòng chọn ngày sinh' }]}
+								name='email'
+								label='Email'
+								rules={[
+									{ required: true, message: 'Vui lòng nhập email' },
+									{ type: 'email', message: 'Email không hợp lệ' },
+								]}
 							>
-								<DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+								<Input />
 							</Form.Item>
 						</Col>
-					</Row>
-
-					<Divider orientation="left">Trường dữ liệu cấu hình thêm</Divider>
-
-					<Row gutter={[12, 0]}>
-						{truongDuLieus.map((field) => (
-							<Col xs={24} md={12} key={field.id}>
-								<Form.Item name={['duLieuMoRong', field.id]} label={field.label}>
-									{field.kieuDuLieu === 'string' && <Input placeholder={`Nhập ${field.label}`} />}
-									{field.kieuDuLieu === 'number' && (
-										<InputNumber style={{ width: '100%' }} placeholder={`Nhập ${field.label}`} />
-									)}
-									{field.kieuDuLieu === 'date' && (
-										<DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-									)}
-								</Form.Item>
-							</Col>
-						))}
+						<Col xs={24} md={12}>
+							<Form.Item
+								name='phone'
+								label='SĐT'
+								rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}
+							>
+								<Input />
+							</Form.Item>
+						</Col>
+						<Col xs={24} md={12}>
+							<Form.Item
+								name='gender'
+								label='Giới tính'
+								rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
+							>
+								<Select>
+									<Select.Option value='Nam'>Nam</Select.Option>
+									<Select.Option value='Nữ'>Nữ</Select.Option>
+									<Select.Option value='Khác'>Khác</Select.Option>
+								</Select>
+							</Form.Item>
+						</Col>
+						<Col xs={24} md={12}>
+							<Form.Item
+								name='address'
+								label='Địa chỉ'
+								rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]}
+							>
+								<Input />
+							</Form.Item>
+						</Col>
+						<Col xs={24} md={12}>
+							<Form.Item
+								name='talent'
+								label='Sở trường'
+								rules={[{ required: true, message: 'Vui lòng nhập sở trường' }]}
+							>
+								<Input />
+							</Form.Item>
+						</Col>
+						<Col xs={24} md={12}>
+							<Form.Item
+								name='clubId'
+								label='Câu lạc bộ'
+								rules={[{ required: true, message: 'Vui lòng chọn câu lạc bộ' }]}
+							>
+								<Select options={clubOptions} />
+							</Form.Item>
+						</Col>
+						<Col xs={24}>
+							<Form.Item
+								name='reason'
+								label='Lý do đăng ký'
+								rules={[{ required: true, message: 'Vui lòng nhập lý do đăng ký' }]}
+							>
+								<Input.TextArea rows={3} />
+							</Form.Item>
+						</Col>
+						<Col xs={24}>
+							<Form.Item name='note' label='Ghi chú'>
+								<Input.TextArea rows={2} />
+							</Form.Item>
+						</Col>
 					</Row>
 				</Form>
 			</Modal>
 
 			<Modal
-				title="Chi tiết văn bằng"
-				visible={detailModalVisible}
-				width={850}
-				footer={<Button onClick={() => setDetailModalVisible(false)}>Đóng</Button>}
-				onCancel={() => setDetailModalVisible(false)}
+				title='Chi tiết đơn đăng ký'
+				visible={applicationDetailVisible}
+				onCancel={() => setApplicationDetailVisible(false)}
+				footer={<Button onClick={() => setApplicationDetailVisible(false)}>Đóng</Button>}
 			>
-				{viewingDiploma ? (
-					<>
-						<Descriptions bordered column={2} size="small">
-							<Descriptions.Item label="Số vào sổ">{viewingDiploma.soVaoSo}</Descriptions.Item>
-							<Descriptions.Item label="Số hiệu văn bằng">
-								{viewingDiploma.soHieuVanBang}
-							</Descriptions.Item>
-							<Descriptions.Item label="Mã sinh viên">
-								{viewingDiploma.maSinhVien}
-							</Descriptions.Item>
-							<Descriptions.Item label="Họ tên">{viewingDiploma.hoTen}</Descriptions.Item>
-							<Descriptions.Item label="Ngày sinh">
-								{dayjs(viewingDiploma.ngaySinh).format('DD/MM/YYYY')}
-							</Descriptions.Item>
-							<Descriptions.Item label="Sổ văn bằng">
-								{getSoVanBangName(viewingDiploma.soVanBangId)}
-							</Descriptions.Item>
-							<Descriptions.Item label="Quyết định tốt nghiệp" span={2}>
-								{getQuyetDinhName(viewingDiploma.quyetDinhId)}
-							</Descriptions.Item>
-						</Descriptions>
-
-						<Divider orientation="left">Thông tin mở rộng</Divider>
-						<Descriptions bordered column={2} size="small">
-							{truongDuLieus.map((field) => (
-								<Descriptions.Item key={field.id} label={field.label}>
-									{renderDynamicValue(field, viewingDiploma)}
-								</Descriptions.Item>
-							))}
-						</Descriptions>
-					</>
+				{viewingApplication ? (
+					<Descriptions column={1} bordered size='small'>
+						<Descriptions.Item label='Họ tên'>{viewingApplication.fullName}</Descriptions.Item>
+						<Descriptions.Item label='Email'>{viewingApplication.email}</Descriptions.Item>
+						<Descriptions.Item label='SĐT'>{viewingApplication.phone}</Descriptions.Item>
+						<Descriptions.Item label='Giới tính'>{viewingApplication.gender}</Descriptions.Item>
+						<Descriptions.Item label='Địa chỉ'>{viewingApplication.address}</Descriptions.Item>
+						<Descriptions.Item label='Sở trường'>{viewingApplication.talent}</Descriptions.Item>
+						<Descriptions.Item label='Câu lạc bộ'>
+							{getClubName(viewingApplication.clubId)}
+						</Descriptions.Item>
+						<Descriptions.Item label='Lý do đăng ký'>{viewingApplication.reason}</Descriptions.Item>
+						<Descriptions.Item label='Trạng thái'>
+							{viewingApplication.status}
+						</Descriptions.Item>
+						<Descriptions.Item label='Lý do từ chối'>
+							{viewingApplication.rejectionReason || '-'}
+						</Descriptions.Item>
+						<Descriptions.Item label='Ghi chú'>{viewingApplication.note || '-'}</Descriptions.Item>
+					</Descriptions>
 				) : (
-					<Empty description="Không có dữ liệu chi tiết" />
+					<Empty description='Không có dữ liệu đơn đăng ký' />
 				)}
+			</Modal>
+
+			<Modal
+				title='Xác nhận từ chối đơn đăng ký'
+				visible={rejectModalVisible}
+				onCancel={() => {
+					setRejectModalVisible(false);
+					setPendingRejectIds([]);
+					rejectForm.resetFields();
+				}}
+				onOk={confirmRejectApplications}
+			>
+				<p style={{ marginBottom: 12 }}>
+					Bạn đang từ chối <b>{pendingRejectIds.length}</b> đơn đăng ký. Vui lòng nhập lý do từ chối.
+				</p>
+				<Form form={rejectForm} layout='vertical'>
+					<Form.Item
+						name='reason'
+						label='Lý do từ chối'
+						rules={[{ required: true, message: 'Vui lòng nhập lý do từ chối' }]}
+					>
+						<Input.TextArea rows={4} />
+					</Form.Item>
+				</Form>
+			</Modal>
+
+			<Modal
+				title='Lịch sử thao tác duyệt/từ chối'
+				visible={historyModalVisible}
+				width={980}
+				onCancel={() => setHistoryModalVisible(false)}
+				footer={<Button onClick={() => setHistoryModalVisible(false)}>Đóng</Button>}
+			>
+				<Table rowKey='id' dataSource={histories} columns={historyColumns} pagination={{ pageSize: 8 }} />
+			</Modal>
+
+			<Modal
+				title='Chuyển câu lạc bộ cho thành viên'
+				visible={transferModalVisible}
+				onCancel={() => {
+					setTransferModalVisible(false);
+					transferForm.resetFields();
+				}}
+				onOk={handleTransferMembers}
+			>
+				<p>
+					Đổi câu lạc bộ cho <b>{selectedMemberRowKeys.length}</b> thành viên.
+				</p>
+				<Form form={transferForm} layout='vertical'>
+					<Form.Item
+						name='targetClubId'
+						label='Câu lạc bộ muốn chuyển đến'
+						rules={[{ required: true, message: 'Vui lòng chọn câu lạc bộ' }]}
+					>
+						<Select options={clubOptions} placeholder='Chọn câu lạc bộ' />
+					</Form.Item>
+				</Form>
 			</Modal>
 		</div>
 	);
