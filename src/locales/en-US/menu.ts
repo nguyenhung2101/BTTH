@@ -9,6 +9,7 @@
   'menu.DanhMuc.ChucVu': 'Chức vụ',
   'menu.DanhMuc.LoaiPhongBan': 'Loại phòng ban',
   'menu.OanTuTi': 'Rock Paper Scissors',
+  'menu.KeHoachDuLich': 'Travel Planner',
   'menu.DatLichDichVu': 'Service Booking',
   'menu.NganHangCauHoi': 'Question Bank',
   'menu.NganHangCauHoi.KhoiKienThuc': 'Knowledge Blocks',

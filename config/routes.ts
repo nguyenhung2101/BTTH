@@ -67,6 +67,12 @@
 		component: './OanTuTi',
 	},
 	{
+		path: '/ke-hoach-du-lich',
+		name: 'KeHoachDuLich',
+		icon: 'EnvironmentOutlined',
+		component: './KeHoachDuLich',
+	},
+	{
 		path: '/ngan-hang-cau-hoi',
 		name: 'NganHangCauHoi',
 		icon: 'BankOutlined',

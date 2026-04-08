@@ -9,6 +9,7 @@ export default {
 	'menu.DanhMuc': 'Danh mục',
 	'menu.DanhMuc.ChucVu': 'Chức vụ',
 	'menu.OanTuTi': 'Oẳn Tù Tì',
+	'menu.KeHoachDuLich': 'Kế hoạch du lịch',
 	'menu.DatLichDichVu': 'Đặt lịch dịch vụ',
 	'menu.NganHangCauHoi': 'Ngân hàng câu hỏi',
 	'menu.NganHangCauHoi.KhoiKienThuc': 'Khối kiến thức',

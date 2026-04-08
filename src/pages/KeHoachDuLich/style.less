@@ -1,0 +1,51 @@
+.travel-planner-page {
+  padding: 16px;
+
+  .travel-header-card {
+    margin-bottom: 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #f6ffed 100%);
+  }
+
+  .travel-card {
+    border-radius: 12px;
+  }
+
+  .travel-cover-image {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+  }
+
+  .day-plan-card {
+    min-height: 160px;
+  }
+
+  .itinerary-row,
+  .popular-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 992px) {
+  .travel-planner-page {
+    padding: 12px;
+
+    .travel-cover-image {
+      height: 160px;
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .travel-planner-page {
+    padding: 8px;
+
+    .travel-cover-image {
+      height: 140px;
+    }
+  }
+}
