@@ -67,6 +67,12 @@
 		component: './OanTuTi',
 	},
 	{
+		path: '/quan-ly-don-hang',
+		name: 'QuanLyDonHang',
+		icon: 'ShoppingCartOutlined',
+		component: './QuanLyDonHang',
+	},
+	{
 		path: '/ke-hoach-du-lich',
 		name: 'KeHoachDuLich',
 		icon: 'EnvironmentOutlined',
