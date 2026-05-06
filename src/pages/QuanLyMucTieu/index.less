@@ -1,0 +1,57 @@
+.goalManagement {
+	padding: 24px;
+
+	.goalCard {
+		height: 100%;
+		transition: all 0.3s ease;
+
+		&:hover {
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+			transform: translateY(-4px);
+		}
+
+		.cardHeader {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-start;
+			gap: 12px;
+
+			h3 {
+				margin-bottom: 8px;
+				font-size: 16px;
+			}
+		}
+
+		.values {
+			.valueRow {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				padding: 8px 0;
+				font-size: 14px;
+
+				.editableValue {
+					color: #1890ff;
+					cursor: pointer;
+					padding: 4px 8px;
+					border-radius: 4px;
+					transition: all 0.2s;
+
+					&:hover {
+						background-color: #f0f5ff;
+					}
+				}
+			}
+		}
+
+		.progressSection {
+			padding: 8px 0;
+		}
+
+		.deadline {
+			font-size: 13px;
+			color: #666;
+			padding: 8px 0;
+		}
+	}
+}

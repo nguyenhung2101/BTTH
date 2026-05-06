@@ -1,0 +1,56 @@
+.page {
+	padding: 24px;
+	background: linear-gradient(180deg, #fff7ed 0%, #ffffff 100%);
+	min-height: calc(100vh - 48px);
+}
+
+.heroCard,
+.socialCard {
+	border-radius: 20px;
+	box-shadow: 0 18px 50px rgba(13, 25, 52, 0.08);
+}
+
+.heroCard {
+	margin-bottom: 20px;
+	background: linear-gradient(135deg, #111827 0%, #1d4ed8 70%, #38bdf8 100%);
+	color: #fff;
+}
+
+.avatarCol {
+	display: flex;
+	justify-content: center;
+}
+
+.avatar {
+	border: 5px solid rgba(255, 255, 255, 0.3);
+}
+
+.title {
+	margin-bottom: 8px !important;
+	color: #fff !important;
+}
+
+.role {
+	display: inline-block;
+	margin-bottom: 16px;
+	padding: 4px 12px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.16);
+	color: #fff;
+}
+
+.bio {
+	max-width: 760px;
+	margin-bottom: 16px !important;
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.socialCard {
+	height: 100%;
+}
+
+@media (max-width: 767px) {
+	.page {
+		padding: 16px;
+	}
+}

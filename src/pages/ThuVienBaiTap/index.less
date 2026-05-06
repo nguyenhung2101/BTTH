@@ -1,0 +1,20 @@
+.exerciseLibrary {
+	padding: 24px;
+
+	.exerciseCard {
+		height: 100%;
+		cursor: pointer;
+		transition: all 0.3s ease;
+
+		&:hover {
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+			transform: translateY(-4px);
+		}
+
+		.actions {
+			display: flex;
+			gap: 8px;
+			justify-content: space-between;
+		}
+	}
+}

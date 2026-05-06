@@ -106,6 +106,75 @@
 		],
 	},
 
+	// FITNESS AND HEALTH TRACKING APP
+	{
+		path: '/fitness',
+		name: 'Ứng Dụng Thể Dục',
+		icon: 'HeartOutlined',
+		routes: [
+			{
+				path: 'dashboard',
+				name: 'Dashboard',
+				component: './TheDuc',
+			},
+			{
+				path: 'workout-journal',
+				name: 'Nhật Ký Tập Luyện',
+				component: './NhatKyTapLuyen',
+			},
+			{
+				path: 'health-metrics',
+				name: 'Nhật Ký Chỉ Số',
+				component: './NhatKyChiSo',
+			},
+			{
+				path: 'goals',
+				name: 'Quản Lý Mục Tiêu',
+				component: './QuanLyMucTieu',
+			},
+			{
+				path: 'exercise-library',
+				name: 'Thư Viện Bài Tập',
+				component: './ThuVienBaiTap',
+			},
+		],
+	},
+
+	{
+		path: '/blog',
+		name: 'Blog Cá Nhân',
+		icon: 'ReadOutlined',
+		component: './Blog/Home',
+	},
+	{
+		path: '/blog/home',
+		hideInMenu: true,
+		redirect: '/blog',
+	},
+	{
+		path: '/blog/post/:slug',
+		hideInMenu: true,
+		component: './Blog/PostDetail',
+	},
+	{
+		path: '/blog/about',
+		name: 'Giới Thiệu',
+		icon: 'ReadOutlined',
+		component: './Blog/About',
+	},
+	{
+		path: '/blog/manage-posts',
+		name: 'Quản Lý Bài Viết',
+		icon: 'ReadOutlined',
+		component: './Blog/ManagePosts',
+	},
+	{
+		path: '/blog/manage-tags',
+		name: 'Quản Lý Thẻ',
+		icon: 'ReadOutlined',
+		component: './Blog/ManageTags',
+	},
+
 	// DANH MUC HE THONG
 	// {
 	// 	name: 'DanhMuc',
